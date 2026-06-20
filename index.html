@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>千川全域投流 · 知识看板</title>
+<style>
+  :root{
+    --bg:#0a0d13; --ink:#e9edf5; --sub:#8b96ab; --faint:#5c6678;
+    --line:#222b3d; --cmt:#828ea6;
+    --c-big:#e7ebf3; --c-small:#828ea6;
+    --blue:#5b9bff; --green:#3ed28a; --orange:#f5a04a; --red:#f0616d;
+    --purple:#b48bf2; --cyan:#3fd0de; --gold:#ecc26a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:
+      radial-gradient(1100px 560px at 82% -12%, #16223e 0%, transparent 58%),
+      radial-gradient(820px 480px at -8% 8%, #1a1530 0%, transparent 52%),
+      var(--bg);
+    color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased;font-size:14px}
+  .wrap{max-width:1280px;margin:0 auto;padding:0 16px 90px}
+
+  .bar{position:sticky;top:0;z-index:60;background:rgba(10,13,19,.86);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;margin:0 -16px 6px}
+  .bar .logo{font-weight:800;font-size:14.5px;flex:1;background:linear-gradient(90deg,#7db0ff,#b48bf2);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .btn{border:1px solid #2c3850;background:#151b28;color:var(--ink);padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--blue);color:#cfe0ff}
+  .btn.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .status{font-size:12px;color:var(--sub);min-width:78px}
+  .hint{font-size:11.5px;color:var(--faint);width:100%;margin-top:-1px}.hint b{color:var(--blue)}
+
+  .hero{padding:20px 2px 4px}
+  .hero h1{font-size:26px;margin:0;font-weight:800}
+  .hero h1 b{background:linear-gradient(90deg,#5b9bff,#b48bf2,#3fd0de);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--sub);font-size:12.5px;margin:7px 0 0;max-width:760px}
+  .summary{margin:12px 0 6px;background:linear-gradient(120deg,#141b2b,#16142a);border:1px solid #2c3850;border-radius:12px;padding:11px 14px;font-size:12.5px;color:#c7d0e0}
+  .summary b{color:#9fc0ff}
+  h3.sec{font-size:21px;color:#eef2fa;margin:24px 2px 10px;font-weight:800;letter-spacing:.5px;border-left:4px solid var(--blue);padding-left:11px}
+  .fontbtn{display:none}.editing .fontbtn{display:inline-block}
+  .clr{font-size:11px;color:var(--sub);display:inline-flex;align-items:center;gap:3px;cursor:pointer}
+  .clr input[type=color]{width:22px;height:20px;border:1px solid #2c3850;border-radius:5px;background:none;padding:0;cursor:pointer}
+
+  /* ===== 卡片瀑布流 ===== */
+  .cards{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+  .card{width:320px;flex:0 0 auto;border-radius:14px;overflow:hidden;
+    background:linear-gradient(180deg,#161c2a,#11151f);border:1px solid var(--line);box-shadow:0 6px 22px rgba(0,0,0,.28)}
+  @media(max-width:700px){.card{width:100%}}
+  /* 排版模式：拖动换位 + 四角缩放 */
+  .layout .card{resize:both;overflow:auto;cursor:grab;min-width:240px;min-height:110px}
+  .layout .card:active{cursor:grabbing}
+  .layout .card.dragging{opacity:.45}
+  .card.dragover{outline:2px dashed var(--blue);outline-offset:3px}
+  .card .top{height:3px;background:var(--g,linear-gradient(90deg,#5b9bff,#3fd0de))}
+  .pad{padding:14px 16px 15px}
+  .chip{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;margin-bottom:9px;
+    background:#1b2434;color:var(--ac,#7db0ff);border:1px solid #243150}
+  .ti{font-size:17px;font-weight:800;margin:0 0 7px;line-height:1.35}
+  .q{font-style:italic;color:#8ea0bd;font-size:12.5px;margin:0 0 10px}.q b{color:#bccbe6;font-style:normal}
+
+  ul.bul{list-style:none;margin:0;padding:0}
+  ul.bul li{position:relative;padding:5px 6px 5px 16px;font-size:13.5px;border-radius:7px;color:var(--c-big)}
+  ul.bul li::before{content:"•";position:absolute;left:2px;top:5px;color:var(--ac,#7db0ff);font-weight:800}
+  ul.bul li .wy{color:var(--c-small);font-size:12px}
+  ul.bul li .wy::before{content:"— "}
+  .editing ul.bul li:hover{background:#15203a}
+
+  .pill{font-size:10px;padding:0 6px;border-radius:18px;margin-left:4px;vertical-align:middle;white-space:nowrap}
+  .p-red{background:#39151b;color:#ff8a93}.p-org{background:#3a2a12;color:#ffc081}.p-grn{background:#10301f;color:#67e0a3}.p-blu{background:#15294a;color:#86b6ff}
+
+  .why{margin-top:11px;background:#1a1320;border:1px solid #3a2230;border-left:3px solid var(--red);
+    border-radius:9px;padding:9px 11px;font-size:12.5px;color:#cbb8c1}
+  .why b{color:#ff8a93}
+
+  .del{display:none;border:1px solid #2c3850;background:#241620;color:#ff8a93;width:19px;height:19px;border-radius:5px;
+    cursor:pointer;font-size:11px;line-height:1;margin-left:5px;vertical-align:middle}
+  .addrow{display:none;margin:5px 0 0 14px;border:1px dashed #2c3850;background:transparent;color:var(--sub);
+    padding:3px 10px;border-radius:7px;font-size:11.5px;cursor:pointer}
+  .addrow:hover{border-color:var(--green);color:#67e0a3}
+  .editing .del{display:inline-block}.editing .addrow{display:inline-block}
+  .editing #content{outline:2px dashed var(--blue);outline-offset:6px;border-radius:10px}
+  .foot{text-align:center;color:var(--faint);font-size:12px;margin-top:32px}
+
+  /* 因果链大卡 */
+  .rootmap{margin:6px 0 10px;border-radius:14px;overflow:hidden;border:1px solid #3a2740;
+    background:linear-gradient(180deg,#1a1322,#12121d)}
+  .rootmap .top{height:3px;background:linear-gradient(90deg,#f0616d,#b48bf2,#5b9bff,#3ed28a)}
+  .rootmap .pad{padding:14px 18px 16px}
+  .rootmap h3.t{margin:0 0 3px;font-size:18px;font-weight:800}
+  .rootmap .lead{color:#9aa6bd;font-size:12.5px;margin:0 0 12px}
+  .roots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px}
+  @media(max-width:640px){.roots{grid-template-columns:1fr}}
+  .root{border:1px solid #344056;border-radius:11px;padding:11px 13px;background:#141a28}
+  .root .rh{font-weight:800;font-size:14px;margin-bottom:3px}
+  .root.r1 .rh{color:#c4a4ff} .root.r2 .rh{color:#67dbe8}
+  .root .rd{color:#9aa6bd;font-size:12.5px}
+  .deriv{margin-top:10px}
+  .deriv .gh{font-weight:700;font-size:13px;margin:10px 0 3px;color:#cdd7e8}
+  .deriv .gh .em{font-weight:400;color:var(--cmt);font-size:11.5px}
+  .chain{position:relative;padding:4px 0 4px 16px;font-size:13px;border-left:1.5px solid #344056;margin-left:6px}
+  .chain b{color:#e9edf5}
+  .chain .arr{color:#ff8a93;font-weight:700}
+  .proof{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .proof .pc{font-size:11px;padding:2px 9px;border-radius:18px;background:#15294a;color:#86b6ff;border:1px solid #243150}
+  .proof .pc b{color:#fff}
+  .infer{margin-top:12px;background:#101f1a;border:1px solid #1f4733;border-left:3px solid #3ed28a;border-radius:9px;padding:10px 12px;font-size:12.5px;color:#aee0c4}
+  .infer b{color:#67e0a3}
+  .infer .ln{margin:4px 0}
+
+  /* 推导链卡片：竖向步骤 */
+  .steps{margin:2px 0 0}
+  .steps .st{position:relative;padding:5px 0 5px 16px;font-size:12.8px;color:var(--c-big);line-height:1.5}
+  .steps .st::before{content:"";position:absolute;left:4px;top:0;bottom:0;width:1.5px;background:#33405a}
+  .steps .st::after{content:"";position:absolute;left:4px;top:13px;width:9px;height:1.5px;background:#33405a}
+  .steps .st:first-child{font-weight:700;color:#fff}
+  .steps .st:first-child::before{top:13px}
+  .steps .st:last-child::before{height:13px}
+  .steps .st b{color:#fff}
+  .ccl{margin-top:9px;background:#10261c;border:1px solid #1f4733;border-left:3px solid #3ed28a;border-radius:8px;padding:7px 10px;font-size:12px;color:#9ce7c0}
+  .ccl b{color:#67e0a3}
+  .twol .ln2{font-size:12.8px;margin:5px 0;color:var(--c-big)}.twol .ln2 b{color:#fff}
+
+  /* 投流大模型 · 树 */
+  .mcard{width:100%!important;flex:1 1 100%}
+  .mtree{font-size:13px;margin-top:6px}
+  .mtree ul{list-style:none;margin:0;padding-left:0}
+  .mtree li{position:relative;padding:4px 0 4px 18px}
+  .mtree li::before{content:"";position:absolute;left:5px;top:0;bottom:0;width:1.5px;background:#33405a}
+  .mtree li::after{content:"";position:absolute;left:5px;top:13px;width:11px;height:1.5px;background:#33405a}
+  .mtree li:last-child::before{height:13px}
+  .mtree .nd{font-weight:600;color:var(--c-big)}
+  .mtree .stg{font-weight:800;font-size:14px}
+  .mtree .core{color:#ffd479;font-weight:700}
+  .mtree .cm{color:var(--c-small);font-size:12px;margin-left:5px}
+  .mtree .cm::before{content:"# "}
+
+  /* 颜色主题 */
+  .c-blue{--ac:#5b9bff;--g:linear-gradient(90deg,#5b9bff,#3fd0de)}
+  .c-cyan{--ac:#3fd0de;--g:linear-gradient(90deg,#3fd0de,#3ed28a)}
+  .c-green{--ac:#3ed28a;--g:linear-gradient(90deg,#3ed28a,#9be15d)}
+  .c-orange{--ac:#f5a04a;--g:linear-gradient(90deg,#f5a04a,#f0616d)}
+  .c-red{--ac:#f0616d;--g:linear-gradient(90deg,#f0616d,#b48bf2)}
+  .c-purple{--ac:#b48bf2;--g:linear-gradient(90deg,#b48bf2,#5b9bff)}
+  .c-gold{--ac:#ecc26a;--g:linear-gradient(90deg,#ecc26a,#f5a04a)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="bar">
+    <span class="logo">⚡ 千川全域投流 · 知识看板</span>
+    <button class="btn" id="editBtn" onclick="toggleEdit()">📝 编辑</button>
+    <button class="btn fontbtn" onclick="setFont(true)">A＋ 大字</button>
+    <button class="btn fontbtn" onclick="setFont(false)">A－ 小字</button>
+    <button class="btn" id="layoutBtn" onclick="toggleLayout()">🔧 排版</button>
+    <label class="clr">大字<input type="color" id="cBig" value="#e7ebf3" oninput="setColor()"></label>
+    <label class="clr">小字<input type="color" id="cSmall" value="#828ea6" oninput="setColor()"></label>
+    <button class="btn" onclick="saveCloud()">☁️ 保存到云端</button>
+    <button class="btn" onclick="loadCloud(true)">⟳ 重载</button>
+    <span class="status" id="status"></span>
+    <span class="hint">📝编辑：删/加行、选中文字点<b>大字/小字</b>调字号。🔧排版：<b>拖动卡片换位</b>、拖<b>右下角</b>缩放。改完点保存。</span>
+  </div>
+
+  <div id="content">
+    <style id="uc"></style>
+
+    <div class="hero">
+      <h1>千川全域投流 · <b>知识看板</b></h1>
+      <p>10 篇实操笔记串成卡片全景，每张卡片底部「为什么」写明逻辑。深色 · 可编辑 · 可增删行 · 可云保存。</p>
+    </div>
+    <div class="summary"><b>主线：</b>抖音靠「谁下单」打<b>标签</b> → 标签决定流量好坏(带歪不可逆) → <b>ROI/出价</b>=向系统点的「流量质量」→ 新号靠<b>追投</b>喂准标签、靠<b>素材</b>分工种草+收割 → 标签准了再放大 → 新规下还要<b>动态调高投产</b>防被洗流量。</div>
+
+    <h3 class="sec">投流大模型 · 全流程总图</h3>
+    <div class="cards">
+      <div class="card mcard c-gold"><div class="top"></div><div class="pad">
+        <span class="chip">总图 · 以账号时间为轴</span>
+        <h3 class="ti">🗺️ 投流大模型</h3>
+        <div class="q">核心问题：<b>一个号从0到稳定，每一步先干嘛、为什么？</b></div>
+        <div class="mtree">
+        <ul>
+          <li><span class="stg" style="color:#5b9bff">【前期 · 0→标签成型】</span><span class="cm">目标：喂订单、打模型、把标签跑准</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>
+            <ul>
+              <li><span class="nd">投放方式 = 控成本（不放量）</span><span class="cm">新号没模型，放量会被泛流量带歪标签</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">优化目标 = 进成交ROI（非整体支付ROI）</span><span class="cm">过滤秒退单，人群质量更好</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">ROI：保本 = 售价÷((售价−成本)×(1−退货率))</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>
+                <ul>
+                  <li><span class="nd">后台填 = 保本÷0.8</span><span class="cm">躲平台只考核80%的赔付坑</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">前期基础ROI = 保本×1.3~1.5</span><span class="cm">设高不设低，目的是跑准标签不是消耗</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                </ul>
+                <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+              </li>
+              <li><span class="nd">智能优惠券：别开</span><span class="cm">探索期开券→跑到50岁/西瓜头条垃圾流量</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">人群定向卡严</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>
+                <ul>
+                  <li><span class="nd">地域只选常驻、关无关省份</span><span class="cm">路过流量带歪标签</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">性别年龄卡核心(24-30/31-40)、童装定向宝妈</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">达人对标同行互动达人</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">只跑店铺新客、排除自己粉丝</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                </ul>
+                <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+              </li>
+              <li><span class="nd">素材结构（按产品定主力）</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>
+                <ul>
+                  <li><span class="nd">低毛利多品 → 画面为主占80%</span><span class="cm">靠自然流放大</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">高毛利单品 → 视频为主占70%</span><span class="cm">靠视频筛精准</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">种草+收割两套都要、别删素材</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                </ul>
+                <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+              </li>
+              <li><span class="core">★核心：追投喂标签</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>
+                <ul>
+                  <li><span class="nd">控成本追投 + 目标直播间成交 + 定向达人30对标</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">选成交 / 定向达人(A4反推A3)</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">追投 ≤ 整场30%</span><span class="cm">太多压feed、模型乱</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">素材筛选漏斗：100烧到40看点击率/ROI→淘汰→留的加2条(到50)→达标加3条→主力每半小时加1条连6次</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                </ul>
+                <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+              </li>
+              <li><span class="nd">建模门槛：画面累计1万 / 素材5000 / 出150单 / 花2000-2400</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">心态：跑不动是正常的(前期双高必然慢)，绝不降ROI；快3-5天慢一周</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+            </ul>
+            <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+          </li>
+
+          <li><span class="stg" style="color:#3ed28a">【中期 · 标签成型→放大】</span><span class="cm">目标：模型立起来、拉高投产</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>
+            <ul>
+              <li><span class="nd">标签精准 → 主计划支付ROI拉到7~8</span><span class="cm">顺序铁律：先准后高</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">素材跑稳 → 慢慢关追投 → 基础计划承接</span><span class="cm">基础ROI≈追投投产×2+1.5</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">数据稳 → 可切放量投放</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">进阶·顺烧破层级（撬自然流）</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>
+                <ul>
+                  <li><span class="nd">3前提：feed为主 / 同层级高位 / 有爆品承接</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">第1支 主计划顺烧打节点(开播20min+20%；300/1h分轮+20%)</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">第2支 追投矫正铺底(3条控成本、卡30对标)</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">第3支 一键起量短时冲量(吃回流抢肉)</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                  <li><span class="nd">铁律：每轮看满15分钟、没涨即停</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+                </ul>
+                <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+              </li>
+            </ul>
+            <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+          </li>
+
+          <li><span class="stg" style="color:#ecc26a">【后期 · 稳定期】</span><span class="cm">目标：稳利润、防被洗、持续放大</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>
+            <ul>
+              <li><span class="nd">ROI贴着实跑值往下设(实跑8→7.5~7.8)</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">新规反制：稳定达标会被掺泛流量洗 → 动态调高投产</span><span class="cm">承接力够硬时</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">智能券可开(有种草人群后)</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+            </ul>
+            <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+          </li>
+
+          <li><span class="stg" style="color:#b48bf2">【老号变体】</span><span class="cm">区别于新号</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>
+            <ul>
+              <li><span class="nd">模型成熟 → 定向可放宽、可放量、可品牌加热/云图人群包扩量</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">消耗下滑 = A3高意向薅完 → 用追投拓新客</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+            </ul>
+            <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+          </li>
+
+          <li><span class="stg" style="color:#f5a04a">【诊断速查】</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>
+            <ul>
+              <li><span class="nd">主计划不消耗 = 追投抢量</span><span class="cm">放量追投 / 成交ROI / 只卡性别年龄 三错之一</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">跑不动 = 样本不够 or ROI太高</span><span class="cm">别降ROI，再喂数据</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+            </ul>
+            <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+          </li>
+
+          <li><span class="stg" style="color:#f0616d">【贯穿全程 · 红线】</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>
+            <ul>
+              <li><span class="nd">不破保本线</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">不为消耗降ROI</span><span class="cm">标签带低不可逆</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">追投跟主计划错开(方式/目标/定向不同)</span><span class="cm">否则抢量</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+              <li><span class="nd">自然流(feed)是主体，追投/素材别压feed</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+            </ul>
+            <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+          </li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增阶段</button>
+        </div>
+      </div></div>
+    </div>
+
+    <h3 class="sec">〇、因果链 · 一切从 2 个根推导（卡片化）</h3>
+    <div class="cards">
+
+      <div class="card c-purple"><div class="top"></div><div class="pad">
+        <span class="chip">地基 · 2个根</span>
+        <h3 class="ti">一切的源头</h3>
+        <div class="twol">
+          <div class="ln2"><b>根① 标签</b>：谁下单 → 打标签 → 决定流量好坏 → <b style="color:#ff8a93">带低不可逆</b></div>
+          <div class="ln2"><b>根② 流量池</b>：按购买意愿分 内容/交易/广告 → <b style="color:#67dbe8">素材决定进哪池</b></div>
+        </div>
+        <div class="ccl"><b>记住：</b>下面每条规则都从这 2 个根长出来。</div>
+      </div></div>
+
+      <div class="card c-cyan"><div class="top"></div><div class="pad">
+        <span class="chip">框架 · 2个目标</span>
+        <h3 class="ti">所有动作只服务 2 件事</h3>
+        <div class="twol">
+          <div class="ln2"><b style="color:#7db0ff">A·质量</b>(人准不准)：追投 / 定向卡严 / 进成交ROI / 券别开</div>
+          <div class="ln2"><b style="color:#67e0a3">B·结构</b>(有没有量·能不能转化)：<b>素材结构</b> / 画面or视频 / 顺烧 / 放量</div>
+        </div>
+        <div class="ccl"><b>素材结构在这：</b>追投管"准"(A)、素材结构管"有量+能转化"(B)。只有硬广→薅完掉量；只有种草→被同行收割。<b>两手都要。</b></div>
+      </div></div>
+
+      <div class="card c-red"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 由根①</span>
+        <h3 class="ti">保护标签链</h3>
+        <div class="steps">
+          <div class="st">标签靠成交喂、且带低不可逆</div>
+          <div class="st">↓ 所以前期最怕引垃圾人下单</div>
+          <div class="st">设高不设低 · 跑不动也不降ROI</div>
+          <div class="st">控成本起步 · 进成交ROI · 券别开 · 人群卡严</div>
+        </div>
+        <div class="ccl"><b>结论：</b>这一串其实是同一件事——保护标签别被污染。</div>
+      </div></div>
+
+      <div class="card c-orange"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 由根①</span>
+        <h3 class="ti">追投喂标签链</h3>
+        <div class="steps">
+          <div class="st">标签要主动喂"精准成交人"</div>
+          <div class="st">↓</div>
+          <div class="st">追投：选成交 / 定向达人(A4反推A3)</div>
+          <div class="st">追投必须跟主计划"错开"(方式/目标/定向全不同)</div>
+          <div class="st">否则抢同一池 → 主计划不消耗</div>
+        </div>
+        <div class="ccl"><b>结论：</b>追投是"点火喂标签"，错开才不内耗。</div>
+      </div></div>
+
+      <div class="card c-green"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 由根②</span>
+        <h3 class="ti">素材分工链</h3>
+        <div class="steps">
+          <div class="st">素材决定你进哪个池</div>
+          <div class="st">↓</div>
+          <div class="st">种草→内容池拉新 · 硬广→广告池收割</div>
+          <div class="st">所以两套素材都要</div>
+          <div class="st">别看投产低就删(删冲锋→收割断流→计划崩)</div>
+        </div>
+        <div class="ccl"><b>结论：</b>自己种的人自己收，不浪费一分钱。</div>
+      </div></div>
+
+      <div class="card c-purple"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 成交密度</span>
+        <h3 class="ti">顺烧破层级链</h3>
+        <div class="steps">
+          <div class="st">短时成交密度高于同赛道</div>
+          <div class="st">↓</div>
+          <div class="st">系统把大盘同时段曝光倾斜给你</div>
+          <div class="st">三支计划顺烧 → 破层级、撬自然流</div>
+        </div>
+        <div class="ccl"><b>逆推：</b>3前提(feed为主/同层级高位/有爆品)正是从"顺烧=刺激画面曝光抢大盘"反推出来的。</div>
+      </div></div>
+
+      <div class="card c-red"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 新规</span>
+        <h3 class="ti">新规反制链</h3>
+        <div class="steps">
+          <div class="st">你稳定达标</div>
+          <div class="st">↓ 平台判定你精准人群吃透了</div>
+          <div class="st">掺泛流量做"人群扩容"洗你</div>
+          <div class="st">动态调高投产反制 → 逼系统只给核心用户</div>
+        </div>
+        <div class="ccl"><b>结论：</b>平台借你洗流量，你得主动递"我扛不住泛流量"的信号。</div>
+      </div></div>
+
+      <div class="card c-blue"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 出价</span>
+        <h3 class="ti">前期"双高"链</h3>
+        <div class="steps">
+          <div class="st">出价决定"排名"，不是"一单扣多少"</div>
+          <div class="st">↓</div>
+          <div class="st">前期=高出价抢量打标签 + 高ROI保质量</div>
+          <div class="st">双高 → 必然慢</div>
+        </div>
+        <div class="ccl"><b>结论：</b>"跑不动是正常的"——是双高的代价，不是你设错。</div>
+      </div></div>
+
+      <div class="card c-blue"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 样本</span>
+        <h3 class="ti">建模门槛链</h3>
+        <div class="steps">
+          <div class="st">标签/模型要够成交样本</div>
+          <div class="st">画面累计1万 / 素材5000 / 出150单 / 花2000-2400</div>
+          <div class="st">↓</div>
+          <div class="st">跑不动多半是"样本不够"，不是"ROI错"</div>
+        </div>
+        <div class="ccl"><b>结论：</b>更不能急着降ROI——再喂喂数据。</div>
+      </div></div>
+
+      <div class="card c-gold"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 互证</span>
+        <h3 class="ti">挡羊毛三件套</h3>
+        <div class="steps">
+          <div class="st">进成交ROI(过滤秒退)</div>
+          <div class="st">+ 智能券别开(防任务流量)</div>
+          <div class="st">+ 人群定向卡严(防杂流量)</div>
+        </div>
+        <div class="ccl"><b>结论：</b>三个动作同一个目的——把羊毛/秒退党挡在标签外，互相印证。</div>
+      </div></div>
+
+      <div class="card c-green"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 自然流</span>
+        <h3 class="ti">自然流优先链</h3>
+        <div class="steps">
+          <div class="st">feed(自然流)是主体、付费是辅助</div>
+          <div class="st">↓ 推出三条都在"别压feed"</div>
+          <div class="st">追投≤30% · 顺烧要feed为主 · 低毛利主投画面80%</div>
+        </div>
+        <div class="ccl"><b>跨卡：</b>画面为主的间(低毛利多品)天生最适合顺烧破层级。</div>
+      </div></div>
+
+      <div class="card c-orange"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 新老号</span>
+        <h3 class="ti">同症不同解链</h3>
+        <div class="steps">
+          <div class="st">症状都是"消耗下滑"</div>
+          <div class="st">新号 = 没模型 → 追投喂标签</div>
+          <div class="st">老号 = A3高意向薅完 → 追投拓新客</div>
+        </div>
+        <div class="ccl"><b>结论：</b>症状一样、根因相反，别用同一招。</div>
+      </div></div>
+
+      <div class="card c-cyan"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 池流动</span>
+        <h3 class="ti">池间向上流动链</h3>
+        <div class="steps">
+          <div class="st">池子会上下流动</div>
+          <div class="st">↓ 你持续做对(成交/互动)</div>
+          <div class="st">种草把内容池浅意向养成成交</div>
+          <div class="st">"素材两套"=推用户在池间向上流动</div>
+        </div>
+        <div class="ccl"><b>结论：</b>种草"养"、硬广"收"，本质是推人从内容池升到广告池。</div>
+      </div></div>
+
+      <div class="card c-orange"><div class="top"></div><div class="pad">
+        <span class="chip">推导 · 养与收</span>
+        <h3 class="ti">养与收分工链</h3>
+        <div class="steps">
+          <div class="st">追投跑低ROI = "养"量养标签</div>
+          <div class="st">基础计划设高ROI = "收"割精准</div>
+          <div class="st">↓</div>
+          <div class="st">基础ROI 显著高于追投(≈追投投产×2+1.5)</div>
+        </div>
+        <div class="ccl"><b>结论：</b>一低一高的分工，对应根②的"种草vs收割"。</div>
+      </div></div>
+
+      <div class="card c-blue"><div class="top"></div><div class="pad">
+        <span class="chip">交叉印证 ✓</span>
+        <h3 class="ti">同结论·多篇独立讲=高置信</h3>
+        <div class="proof" style="margin-top:4px">
+          <span class="pc"><b>设高不设低/不降ROI</b> · ch1·ch7·ch8</span>
+          <span class="pc"><b>追投喂精准标签</b> · ch1·2·3·9·10</span>
+          <span class="pc"><b>标签带低不可逆</b> · ch1·ch4·ch10</span>
+          <span class="pc"><b>追投错开不抢量</b> · ch3·ch9</span>
+          <span class="pc"><b>人群定向卡严</b> · ch2·ch8·ch9</span>
+        </div>
+      </div></div>
+
+      <div class="card c-green"><div class="top"></div><div class="pad">
+        <span class="chip">隐藏结论 ⟹</span>
+        <h3 class="ti">能推导出的更深结论</h3>
+        <div class="twol">
+          <div class="ln2">· ROI 不是死值：「保本÷0.8是底线」×「稳定达标会被洗」<b style="color:#67e0a3">⟹</b> 要在保本线与被洗临界之间<b>动态走</b>。</div>
+          <div class="ln2">· 「动态调高投产」和「后期贴实跑值往下设」是<b>一体两面</b>：都在追系统当前能给的最优ROI。</div>
+          <div class="ln2">· 追投与主计划本就该是两套参数(追投低ROI拓新客 / 主计划高ROI收割)，硬调成一样必然抢量。</div>
+        </div>
+      </div></div>
+
+    </div>
+
+    <h3 class="sec">一、底层机制（地基）</h3>
+    <div class="cards">
+
+      <div class="card c-cyan"><div class="top"></div><div class="pad">
+        <span class="chip">底层 · 流量池</span>
+        <h3 class="ti">三大流量池：按购买意愿分</h3>
+        <div class="q">核心问题：<b>用户被分在哪个池？</b></div>
+        <ul class="bul">
+          <li>广告池 = 想买意愿最强 <span class="wy">马上下单的高意向人(点小黄车/问价/还搜)</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>交易池 = 想买意愿中等 <span class="wy">有兴趣有可能(点赞评论没下单)</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>内容池 = 有点兴趣暂不买 <span class="wy">浅意向适合种草(看几秒就划走)</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>系统靠"你的全部行为"实时分池、还会上下流动 <span class="wy">看播/赞评/搜索/下单全抓打标签</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>全域本质=打通三池、各司其职——种草素材丢内容池拉新(便宜)、硬广丢交易/广告池收割，自己种的人自己收，不浪费一分钱。</div>
+      </div></div>
+
+      <div class="card c-purple"><div class="top"></div><div class="pad">
+        <span class="chip">底层 · 标签</span>
+        <h3 class="ti">标签机制：谁下单决定一切</h3>
+        <div class="q">核心问题：<b>系统凭什么给你流量？</b></div>
+        <ul class="bul">
+          <li>链路：谁下单 → 打标签 → 决定后续流量好坏<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>前期谁下单，决定你后面拿什么流量 <span class="wy">宝妈下单→猛推宝妈；乱的人下单→判定成交质量低→越推越差</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>标签被带低 = 几乎不可逆<span class="pill p-red">致命</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>为消耗降ROI→引低质量人下单→标签打歪→后期想要好流量"难如登天，救不回来"。所以前期宁可跑不动也不污染标签。</div>
+      </div></div>
+
+      <div class="card c-red"><div class="top"></div><div class="pad">
+        <span class="chip">底层 · 新规 ⭐</span>
+        <h3 class="ti">数据做太好，反而被限流</h3>
+        <div class="q">核心问题：<b>为什么越投越差？</b></div>
+        <ul class="bul">
+          <li>① 稳定达成投产 → ② 判定你精准人群吃透了<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>③ 启动"人群扩容"掺进泛流量 → ④ 精准度稀释、越投越差<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>规则：接泛流量→给量；只要精准→压消耗限流<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>破局：动态调高投产，逼系统只给核心用户<span class="pill p-grn">解法</span> <span class="wy">投产快摸到稳定值就手动调高</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>这不是bug，是平台借千万直播间"洗流量养人群"——商家=免费工具人。你帮平台养人群才给量，不帮就限你。</div>
+      </div></div>
+    </div>
+
+    <h3 class="sec">二、ROI 与 出价</h3>
+    <div class="cards">
+
+      <div class="card c-blue"><div class="top"></div><div class="pad">
+        <span class="chip">ROI · 设高不设低</span>
+        <h3 class="ti">ROI 设置全路线</h3>
+        <div class="q">核心问题：<b>后台到底填多少？</b></div>
+        <ul class="bul">
+          <li>① 保本ROI = 售价÷((售价−成本)×(1−退货率)) <span class="wy">例 199/成本60/退货30%→≈2.05</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>② 后台填 = 真实保本 ÷ 0.8<span class="pill p-red">90%踩坑</span> <span class="wy">躲平台只考核80%的赔付坑；保本4填5、保本5填6.25</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>③ 前期 = 保本×1.3~1.5 <span class="wy">带自然流保本4→设5~6；投素材保本3→设4.5</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>④ 中期标签准了 → 拉到 7~8<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>⑤ 后期贴着实跑值往下设一点 <span class="wy">实跑8→设7.5~7.8</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>⑥ 跑不动也绝不降ROI<span class="pill p-org">ch7</span> <span class="wy">正解=守保本+追投带消耗</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>ROI=向系统点的「流量质量」。设低→系统给垃圾流量、把标签带低不可逆；所以宁可跑不动也设在保本之上。</div>
+      </div></div>
+
+      <div class="card c-gold"><div class="top"></div><div class="pad">
+        <span class="chip">出价 · 4公式 ★</span>
+        <h3 class="ti">出价合集：按场景选公式</h3>
+        <div class="q">核心问题：<b>这个出价怎么算？</b></div>
+        <ul class="bul">
+          <li>素材追投·冷启动 → 客单价×毛利率÷0.8 <span class="wy">客单100·毛利50%→62.5</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>追投·有自然流 → 毛利的50%~80% <span class="wy">毛利60→出价30~50</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>打标签/修正人群 → 客单价的30%~40% <span class="wy">逐条阶梯递增</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>顺烧/铺底 → 系统推荐值 ±10%<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>出价决定计划"排名"，非"一单扣多少" <span class="wy">前期必须高、再慢慢降</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>出价>50 → 预算跟涨≈出价的5倍<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>公式不一样不是矛盾、是场景不同；出价高=抢量打标签能力强，所以前期出价必须高，再慢慢降。</div>
+      </div></div>
+
+      <div class="card c-green"><div class="top"></div><div class="pad">
+        <span class="chip">新号 · 投流方式</span>
+        <h3 class="ti">控成本 vs 放量</h3>
+        <div class="q">核心问题：<b>新号先用哪个？</b></div>
+        <ul class="bul">
+          <li>✅ 控成本(新号前期)：卡死成本、质量可控<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>优化目标选「进成交ROI」 <span class="wy">过滤秒退单、人群质量更好</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>⏳ 放量：起量快但质量不可控、易引泛流量<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>放量适合"全域数据稳定之后"再放大<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>新号先控成本求稳→数据稳了再切放量放大。顺序反了，标签先被泛流量带歪。</div>
+      </div></div>
+    </div>
+
+    <h3 class="sec">三、起新号 与 追投（核心打法）</h3>
+    <div class="cards">
+
+      <div class="card c-blue"><div class="top"></div><div class="pad">
+        <span class="chip">起号 · 5步+3天</span>
+        <h3 class="ti">新号起号流程</h3>
+        <div class="q">核心问题：<b>新号怎么开？</b></div>
+        <ul class="bul">
+          <li>① 控成本起步 <span class="wy">求稳、把标签跑准</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>② 优化目标 = 进成交ROI<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>③ 智能优惠券别开 <span class="wy">探索期开券会跑到50岁/西瓜头条垃圾流量</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>④ 素材结构按产品定主力 <span class="wy">低毛利多品→画面；高毛利单品→视频</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>⑤ 跑不动→用素材追投补种草 <span class="wy">两原因：没种草 / ROI太高</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>打标签3天法：主计划锁死(50/80)、纯靠追投探精准、成交ROI各半1:1<span class="pill p-blu">ch10</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>快3-5天慢一周；起号跑微付费不求快，慢一点反而对，先把标签打扎实后续才能少亏多起量。</div>
+      </div></div>
+
+      <div class="card c-orange"><div class="top"></div><div class="pad">
+        <span class="chip">追投 · 总纲 ⭐</span>
+        <h3 class="ti">追投：作用 · 搭建 · 注意</h3>
+        <div class="q">核心问题：<b>追投到底怎么用？</b></div>
+        <ul class="bul">
+          <li>作用：攒精准成交标签、带主计划消耗、矫正人群<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>选人：①选成交(已成交人群) ②定向达人(蹭对标粉丝) <span class="wy">A4反推A3</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>搭建①：方式=控成本追投(别放量) <span class="wy">放量追投跟主计划没区别→抢量</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>搭建②：目标=直播间成交(别成交ROI) <span class="wy">探365天首购新客，跟主计划错开</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>搭建③：定向=选达人、一批30个对标 <span class="wy">只卡性别年龄=跟主计划抢量</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>搭建④：只加"达人"不选"分类"、日预算≈300、跑完换批<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>🔴 整场消耗追投 ≤ 30% <span class="wy">太多→模型乱、压自然流</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>建模门槛：追投画面累计成交≈1万；素材累计破5000(素材ROI3→主计划设5) <span class="wy">够样本量模型才立得起来</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>收尾：素材跑稳→关追投→基础计划承接 <span class="wy">基础ROI≈追投投产×2+1.5(追投3→基础7.5)</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>追投不是盲目抢量，是喂数据样本；跟主计划"错开"(方式/目标/定向全不同)才不抢量。养出能独立跑的基础计划才是王道。</div>
+      </div></div>
+
+      <div class="card c-green"><div class="top"></div><div class="pad">
+        <span class="chip">素材 · 画面vs视频</span>
+        <h3 class="ti">直播画面 vs 素材</h3>
+        <div class="q">核心问题：<b>主投画面还是视频？</b></div>
+        <ul class="bul">
+          <li>低毛利·多品 → 主投画面、占80%以上 <span class="wy">利润低靠自然流放大</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>高毛利·单品 → 主投视频、占70%以上 <span class="wy">靠视频筛精准流量</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>素材两套都要(种草+收割) <span class="wy">只有硬广薅完掉量；只有种草被同行收割</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>别看投产低就删素材<span class="pill p-red">坑</span> <span class="wy">删了冲锋的→收割的没流量→计划崩</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>全域要"种草归种草、收割归收割"；每条素材角色不同，删了冲锋种草的，后方收割的就没人送流量。</div>
+      </div></div>
+    </div>
+
+    <h3 class="sec">四、进阶玩法 与 专项注意</h3>
+    <div class="cards">
+
+      <div class="card c-purple"><div class="top"></div><div class="pad">
+        <span class="chip">进阶 · 顺烧</span>
+        <h3 class="ti">顺烧破层级（撬自然流）</h3>
+        <div class="q">核心问题：<b>怎么撬动自然流？</b></div>
+        <ul class="bul">
+          <li>3前提：feed为主 / 同层级高位 / 有爆品承接<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>第1支·主计划顺烧打节点 <span class="wy">开播20min后+20%；300/1h分轮+20%递增</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>第2支·追投矫正人群铺底 <span class="wy">3条控成本、卡30对标</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>第3支·一键起量短时冲量 <span class="wy">刺激消耗和Feed、吃回流抢肉</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>铁律：每轮观察满15分钟<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>用短时高成交密度抢大盘同时段曝光。烧完马上开下一轮会把自然流变付费；某轮没涨立即停。</div>
+      </div></div>
+
+      <div class="card c-orange"><div class="top"></div><div class="pad">
+        <span class="chip">诊断 · 不消耗</span>
+        <h3 class="ti">主计划不消耗 = 追投抢量</h3>
+        <div class="q">核心问题：<b>主计划为什么不花钱？</b></div>
+        <ul class="bul">
+          <li>① 追投选了放量追投 <span class="wy">跟主计划没区别→抢量</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>② 优化目标选了成交ROI <span class="wy">跟主计划探同一人群→抢量</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>③ 定向只卡性别+年龄 <span class="wy">覆盖十几亿 vs 21亿没区别→抢量</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>正解：让追投跟主计划错开(见追投4点)<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>三个错误都让追投跟主计划抢同一个大流量池；把方式/目标/定向都错开就不抢量了。</div>
+      </div></div>
+
+      <div class="card c-red"><div class="top"></div><div class="pad">
+        <span class="chip">专项 · 券+人群</span>
+        <h3 class="ti">优惠券 / 人群定向</h3>
+        <div class="q">核心问题：<b>还有哪些坑？</b></div>
+        <ul class="bul">
+          <li>智能优惠券：新号别开 <span class="wy">开券跑到50岁/西瓜头条垃圾流量；后期稳了再开</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>人群定向：新号必须卡严、老号可放宽<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>地域只选常驻、关掉无关省份 <span class="wy">路过的流量会把标签带歪</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>性别年龄卡死核心(24-30/31-40)、童装定向宝妈<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+          <li>达人对标同行互动达人；只跑店铺新客、排除自己粉丝<button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>
+        </ul>
+        <button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>
+        <div class="why"><b>为什么：</b>新号模型空白，一松就被杂流量污染；老粉已是你的人，再投是浪费且拓不出新标签。</div>
+      </div></div>
+    </div>
+
+  </div>
+
+  <div class="foot">10 篇全部串联 · 卡片式 · 可增删行 · 可云保存 · 改完点「保存到云端」</div>
+</div>
+
+<script>
+  let editing=false, layout=false;
+  function toggleEdit(){
+    if(layout) toggleLayout();           // 进文字编辑前先退排版
+    editing=!editing;
+    document.getElementById('content').contentEditable=editing;
+    document.body.classList.toggle('editing',editing);
+    const b=document.getElementById('editBtn');
+    b.classList.toggle('on',editing);
+    b.textContent=editing?'✅ 完成':'📝 编辑';
+    setStatus(editing?'编辑中…选中文字点 大字/小字 调字号':'');
+  }
+  function setFont(big){
+    try{document.execCommand('styleWithCSS',false,true);}catch(e){}
+    document.execCommand('fontSize',false, big?'5':'3');
+  }
+  function toggleLayout(){
+    if(editing) toggleEdit();             // 进排版前先退文字编辑
+    layout=!layout;
+    document.body.classList.toggle('layout',layout);
+    const b=document.getElementById('layoutBtn');
+    b.classList.toggle('on',layout);
+    b.textContent=layout?'✅ 完成排版':'🔧 排版';
+    document.querySelectorAll('.card').forEach(c=>c.draggable=layout);
+    setStatus(layout?'排版中…拖卡片换位 / 拖右下角缩放':'');
+  }
+  // 拖动换位
+  let dragEl=null;
+  document.addEventListener('dragstart',e=>{if(!layout)return;const c=e.target.closest('.card');if(c){dragEl=c;c.classList.add('dragging');e.dataTransfer.effectAllowed='move';}});
+  document.addEventListener('dragend',()=>{if(dragEl)dragEl.classList.remove('dragging');dragEl=null;document.querySelectorAll('.dragover').forEach(x=>x.classList.remove('dragover'));});
+  document.addEventListener('dragover',e=>{if(!dragEl)return;e.preventDefault();const c=e.target.closest('.card');document.querySelectorAll('.dragover').forEach(x=>x.classList.remove('dragover'));if(c&&c!==dragEl&&c.parentElement===dragEl.parentElement)c.classList.add('dragover');});
+  document.addEventListener('drop',e=>{if(!dragEl)return;e.preventDefault();const c=e.target.closest('.card');if(c&&c!==dragEl&&c.parentElement===dragEl.parentElement){const r=c.getBoundingClientRect();const after=e.clientY>r.top+r.height/2;c.parentElement.insertBefore(dragEl,after?c.nextSibling:c);}document.querySelectorAll('.dragover').forEach(x=>x.classList.remove('dragover'));});
+  function setStatus(t){document.getElementById('status').textContent=t;}
+
+  // 自定义大字/小字颜色（写进 #content 内的 <style>，随云保存一起持久化）
+  function setColor(){
+    const big=document.getElementById('cBig').value, sm=document.getElementById('cSmall').value;
+    let uc=document.getElementById('uc');
+    if(!uc){uc=document.createElement('style');uc.id='uc';document.getElementById('content').prepend(uc);}
+    uc.textContent=':root{--c-big:'+big+';--c-small:'+sm+'}';
+  }
+  function syncColorInputs(){
+    const cs=getComputedStyle(document.documentElement);
+    const big=(cs.getPropertyValue('--c-big')||'#e7ebf3').trim();
+    const sm=(cs.getPropertyValue('--c-small')||'#828ea6').trim();
+    const toHex=v=>{if(v[0]==='#'&&v.length===7)return v;const m=v.match(/\d+/g);return m?'#'+m.slice(0,3).map(n=>(+n).toString(16).padStart(2,'0')).join(''):v;};
+    document.getElementById('cBig').value=toHex(big);
+    document.getElementById('cSmall').value=toHex(sm);
+  }
+
+  function addRow(btn){
+    let ul=btn.previousElementSibling;
+    while(ul && ul.tagName!=='UL') ul=ul.previousElementSibling;
+    if(!ul) return;
+    const li=document.createElement('li');
+    li.innerHTML='新要点（点这里改） <span class="wy">原因（点这里改）</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
+    ul.appendChild(li);
+  }
+  function delRow(btn){const li=btn.closest('li');if(li)li.remove();}
+
+  // 固定云端地址（跨设备同一份）
+  const CLOUD_ID='019ee435-2027-78f6-93a3-0692a06ee225';
+  const LS_KEY='touliu_outline_v5', BASE='https://jsonblob.com/api/jsonBlob', URL_=BASE+'/'+CLOUD_ID;
+  async function saveCloud(){
+    const html=document.getElementById('content').innerHTML;
+    localStorage.setItem(LS_KEY,html);
+    setStatus('保存中…');
+    try{
+      const res=await fetch(URL_,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({html})});
+      setStatus(res.ok?('☁️ 已存云端 '+time()):'云端失败·已存本地');
+    }catch(e){setStatus('断网·已存本地');}
+  }
+  async function loadCloud(manual){
+    try{
+      const res=await fetch(URL_,{headers:{'Accept':'application/json'}});
+      if(res.ok){const d=await res.json();if(d&&d.html){document.getElementById('content').innerHTML=d.html;localStorage.setItem(LS_KEY,d.html);if(manual)setStatus('已载入云端版 '+time());return;}}
+    }catch(e){}
+    const local=localStorage.getItem(LS_KEY);
+    if(local){document.getElementById('content').innerHTML=local;if(manual)setStatus('云端没连上·载入本地版');}
+    else if(manual){setStatus('云端暂空·先保存一次');}
+  }
+  function time(){const d=new Date();return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');}
+  loadCloud(false).finally(syncColorInputs);
+</script>
+</body>
+</html>
