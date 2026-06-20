@@ -71,6 +71,36 @@
   .delcard{border:1px solid #3b2530;background:#261720;color:#ff8a93;border-radius:7px;
     padding:3px 8px;font-size:11px;line-height:1.3;cursor:pointer}
   .delcard:hover{border-color:#f0616d;background:#341923}
+  .imgbox{position:relative;display:inline-block;width:220px;min-width:72px;min-height:54px;max-width:100%;
+    margin:8px 8px 8px 0;border:1px solid #2c3850;border-radius:9px;background:#0f1420;vertical-align:top;
+    box-shadow:0 6px 18px rgba(0,0,0,.22)}
+  .imgbox img{display:block;width:100%;height:100%;max-width:none;border-radius:8px;object-fit:contain;cursor:zoom-in}
+  .imgbox.thumb{width:160px;height:110px}
+  .imgbox.fit{width:100%;height:auto}
+  .imgbox.fit img{height:auto}
+  .imgtools{display:none;position:absolute;top:6px;right:6px;z-index:5;gap:4px;padding:3px;border-radius:8px;
+    background:rgba(10,13,19,.82);border:1px solid #2c3850;backdrop-filter:blur(8px)}
+  .editing .imgbox .imgtools{display:flex}
+  .imgtools button{border:1px solid #34425d;background:#151b28;color:#cbd6ea;border-radius:6px;padding:2px 6px;
+    font-size:11px;line-height:1.4;cursor:pointer}
+  .imgtools button:hover{border-color:var(--blue);color:#fff}
+  .imghandle{display:none;position:absolute;z-index:4;width:10px;height:10px;border:1px solid #9fc0ff;
+    border-radius:50%;background:#5b9bff;box-shadow:0 0 0 2px rgba(10,13,19,.85)}
+  .editing .imgbox .imghandle{display:block}
+  .imghandle.n{top:-5px;left:50%;transform:translateX(-50%);cursor:ns-resize}
+  .imghandle.s{bottom:-5px;left:50%;transform:translateX(-50%);cursor:ns-resize}
+  .imghandle.e{right:-5px;top:50%;transform:translateY(-50%);cursor:ew-resize}
+  .imghandle.w{left:-5px;top:50%;transform:translateY(-50%);cursor:ew-resize}
+  .imghandle.nw{left:-5px;top:-5px;cursor:nwse-resize}
+  .imghandle.ne{right:-5px;top:-5px;cursor:nesw-resize}
+  .imghandle.sw{left:-5px;bottom:-5px;cursor:nesw-resize}
+  .imghandle.se{right:-5px;bottom:-5px;cursor:nwse-resize}
+  .imglightbox{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;
+    padding:34px;background:rgba(0,0,0,.82);backdrop-filter:blur(6px)}
+  .imglightbox.on{display:flex}
+  .imglightbox img{max-width:96vw;max-height:92vh;border-radius:10px;box-shadow:0 18px 60px rgba(0,0,0,.5);background:#111}
+  .imglightbox .close{position:fixed;top:18px;right:22px;border:1px solid #42506a;background:#151b28;color:#fff;
+    border-radius:9px;padding:6px 10px;font-size:13px;cursor:pointer}
   .chip{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;margin-bottom:9px;
     background:#1b2434;color:var(--ac,#7db0ff);border:1px solid #243150}
   .ti{font-size:17px;font-weight:800;margin:0 0 7px;line-height:1.35}
@@ -992,6 +1022,110 @@
     setStatus('已删除卡片，记得保存');
   }
 
+  function ensureImageLightbox(){
+    if(document.getElementById('imgLightbox')) return;
+    const lb=document.createElement('div');
+    lb.id='imgLightbox';
+    lb.className='imglightbox';
+    lb.innerHTML='<button class="close" contenteditable="false">关闭</button><img alt="">';
+    document.body.appendChild(lb);
+    lb.addEventListener('click',e=>{if(e.target===lb||e.target.classList.contains('close'))lb.classList.remove('on');});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')lb.classList.remove('on');});
+  }
+  function openImageLightbox(img){
+    ensureImageLightbox();
+    const lb=document.getElementById('imgLightbox');
+    lb.querySelector('img').src=img.currentSrc||img.src;
+    lb.classList.add('on');
+  }
+  function imageToolsHtml(){
+    return '<div class="imgtools" contenteditable="false">'+
+      '<button onclick="setImageMode(this,\'thumb\')" contenteditable="false">缩略</button>'+
+      '<button onclick="setImageMode(this,\'fit\')" contenteditable="false">适宽</button>'+
+      '<button onclick="setImageMode(this,\'natural\')" contenteditable="false">原图</button>'+
+      '</div>';
+  }
+  function imageHandlesHtml(){
+    return ['n','s','e','w','nw','ne','sw','se'].map(d=>'<i class="imghandle '+d+'" data-dir="'+d+'" contenteditable="false"></i>').join('');
+  }
+  function enhanceImages(root=document){
+    ensureImageLightbox();
+    root.querySelectorAll('#content img').forEach(img=>{
+      if(img.closest('.imglightbox')) return;
+      let box=img.closest('.imgbox');
+      if(!box){
+        box=document.createElement('span');
+        box.className='imgbox thumb';
+        box.contentEditable='false';
+        img.parentNode.insertBefore(box,img);
+        box.appendChild(img);
+      }
+      img.removeAttribute('width');
+      img.removeAttribute('height');
+      img.dataset.imgEnhanced='1';
+      if(!box.querySelector(':scope > .imgtools')) box.insertAdjacentHTML('afterbegin',imageToolsHtml());
+      if(!box.querySelector(':scope > .imghandle')) box.insertAdjacentHTML('beforeend',imageHandlesHtml());
+    });
+  }
+  function setImageMode(btn,mode){
+    const box=btn.closest('.imgbox');
+    if(!box) return;
+    box.classList.remove('thumb','fit');
+    if(mode==='thumb'){
+      box.classList.add('thumb');
+      box.style.width='160px';
+      box.style.height='110px';
+    }else if(mode==='fit'){
+      box.classList.add('fit');
+      box.style.width='100%';
+      box.style.height='';
+    }else{
+      box.style.width='';
+      box.style.height='';
+    }
+    setStatus('图片尺寸已调整，记得保存');
+  }
+  let imgResize=null;
+  document.addEventListener('pointerdown',e=>{
+    const h=e.target.closest('.imghandle');
+    if(!h||!editing) return;
+    const box=h.closest('.imgbox');
+    const r=box.getBoundingClientRect();
+    imgResize={box,dir:h.dataset.dir,x:e.clientX,y:e.clientY,w:r.width,h:r.height};
+    box.classList.remove('thumb','fit');
+    box.style.width=r.width+'px';
+    box.style.height=r.height+'px';
+    h.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+    e.stopPropagation();
+  },true);
+  document.addEventListener('pointermove',e=>{
+    if(!imgResize) return;
+    const dx=e.clientX-imgResize.x, dy=e.clientY-imgResize.y, dir=imgResize.dir;
+    let w=imgResize.w, h=imgResize.h;
+    if(dir.includes('e')) w=imgResize.w+dx;
+    if(dir.includes('w')) w=imgResize.w-dx;
+    if(dir.includes('s')) h=imgResize.h+dy;
+    if(dir.includes('n')) h=imgResize.h-dy;
+    imgResize.box.style.width=Math.max(72,Math.round(w))+'px';
+    imgResize.box.style.height=Math.max(54,Math.round(h))+'px';
+    e.preventDefault();
+  },true);
+  document.addEventListener('pointerup',()=>{
+    if(imgResize) setStatus('图片尺寸已调整，记得保存');
+    imgResize=null;
+  },true);
+  document.addEventListener('click',e=>{
+    const img=e.target.closest('.imgbox img');
+    if(!img) return;
+    if(e.target.closest('.imgtools')||e.target.closest('.imghandle')) return;
+    if(!editing) openImageLightbox(img);
+  });
+  document.addEventListener('paste',()=>setTimeout(()=>enhanceImages(document),80));
+  document.addEventListener('input',e=>{
+    if(e.target&&e.target.closest&&e.target.closest('#content')) setTimeout(()=>enhanceImages(document),80);
+  });
+
   // 固定云端地址（跨设备同一份）
   const CLOUD_ID='019ee435-2027-78f6-93a3-0692a06ee225';
   const LS_KEY='touliu_outline_v5', BASE='https://jsonblob.com/api/jsonBlob', URL_=BASE+'/'+CLOUD_ID;
@@ -1007,14 +1141,14 @@
   async function loadCloud(manual){
     try{
       const res=await fetch(URL_,{headers:{'Accept':'application/json'}});
-      if(res.ok){const d=await res.json();if(d&&d.html){document.getElementById('content').innerHTML=d.html;localStorage.setItem(LS_KEY,d.html);ensureCardControls();syncLayoutDraggables();if(manual)setStatus('已载入云端版 '+time());return;}}
+      if(res.ok){const d=await res.json();if(d&&d.html){document.getElementById('content').innerHTML=d.html;localStorage.setItem(LS_KEY,d.html);ensureCardControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('已载入云端版 '+time());return;}}
     }catch(e){}
     const local=localStorage.getItem(LS_KEY);
-    if(local){document.getElementById('content').innerHTML=local;ensureCardControls();syncLayoutDraggables();if(manual)setStatus('云端没连上·载入本地版');}
+    if(local){document.getElementById('content').innerHTML=local;ensureCardControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('云端没连上·载入本地版');}
     else if(manual){setStatus('云端暂空·先保存一次');}
   }
   function time(){const d=new Date();return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');}
-  loadCloud(false).finally(()=>{ensureCardControls();syncLayoutDraggables();syncColorInputs();});
+  loadCloud(false).finally(()=>{ensureCardControls();enhanceImages(document);syncLayoutDraggables();syncColorInputs();});
 </script>
 </body>
 </html>
