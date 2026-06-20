@@ -20,10 +20,10 @@
       var(--bg);
     color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
     line-height:1.6;-webkit-font-smoothing:antialiased;font-size:14px}
-  .wrap{max-width:1280px;margin:0 auto;padding:0 16px 90px}
+  .wrap{width:100%;max-width:none;margin:0;padding:0 24px 90px}
 
   .bar{position:sticky;top:0;z-index:60;background:rgba(10,13,19,.86);backdrop-filter:blur(10px);
-    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;margin:0 -16px 6px}
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 24px;margin:0 -24px 6px}
   .bar .logo{font-weight:800;font-size:14.5px;flex:1;background:linear-gradient(90deg,#7db0ff,#b48bf2);-webkit-background-clip:text;background-clip:text;color:transparent}
   .btn{border:1px solid #2c3850;background:#151b28;color:var(--ink);padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer;transition:.15s}
   .btn:hover{border-color:var(--blue);color:#cfe0ff}
@@ -44,10 +44,10 @@
   .clr input[type=color]{width:22px;height:20px;border:1px solid #2c3850;border-radius:5px;background:none;padding:0;cursor:pointer}
 
   /* ===== 卡片瀑布流 ===== */
-  .cards{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+  .cards{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;justify-content:flex-start}
   .card{width:320px;flex:0 0 auto;border-radius:14px;overflow:hidden;
     background:linear-gradient(180deg,#161c2a,#11151f);border:1px solid var(--line);box-shadow:0 6px 22px rgba(0,0,0,.28)}
-  @media(max-width:700px){.card{width:100%}}
+  @media(max-width:700px){.wrap{padding:0 16px 90px}.bar{padding:10px 16px;margin:0 -16px 6px}.card{width:100%}}
   /* 排版模式：拖动换位 + 四角缩放 */
   .layout .card{resize:both;overflow:auto;cursor:grab;min-width:240px;min-height:110px}
   .layout .card:active{cursor:grabbing}
