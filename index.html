@@ -57,6 +57,9 @@
   .cards{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;justify-content:flex-start}
   .card{width:320px;flex:0 0 auto;border-radius:14px;overflow:hidden;
     background:linear-gradient(180deg,#161c2a,#11151f);border:1px solid var(--line);box-shadow:0 6px 22px rgba(0,0,0,.28)}
+  /* 普通浏览时：过高的卡片限高、卡内出滚动条，看板更整齐（编辑时自动展开、不限高） */
+  .card:not(.mcard){max-height:520px;overflow-y:auto;overflow-x:hidden}
+  .editing .card,.layout .card{max-height:none}
   @media(max-width:700px){.wrap{padding:0 16px 90px}.bar{padding:10px 16px;margin:0 -16px 6px}.card{width:100%}}
   /* 排版模式：顶部色条=拖动手柄、右下角缩放、卡内可滚动 */
   .layout .card{resize:both;overflow:auto;min-width:240px;min-height:96px}
