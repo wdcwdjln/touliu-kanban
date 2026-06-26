@@ -48,9 +48,16 @@
   .clr{font-size:11px;color:var(--sub);display:inline-flex;align-items:center;gap:3px;cursor:pointer}
   /* 隐藏云端历史里那颗多余的「+卡片」（顶栏已有，去重更清爽） */
   #content .contenttools{display:none!important}
-  /* 占位提示：看得见、不用删、一输入就消失 */
-  .ph:empty::before{content:attr(data-ph);color:var(--faint);font-weight:400;font-style:normal;opacity:.85;pointer-events:none}
-  ul.bul li .wy.ph:empty::before{content:attr(data-ph);color:var(--faint)}
+  /* 占位提示：只在编辑时显示、一打字就消失（普通浏览看不到，干净） */
+  .editing .ph:empty::before{content:attr(data-ph);color:var(--faint);font-weight:400;font-style:normal;opacity:.9;pointer-events:none}
+  .editing .q b.ph,.editing .why .ph{display:inline-block;min-width:90px}
+  /* 新增行：大字一整行、小字一整行——点哪行就是哪种字，整行都能点 */
+  ul.bul li .bigtext{display:block;color:var(--c-big);font-size:13.5px;line-height:1.5;min-height:1.25em}
+  ul.bul li .subnote{display:block;color:var(--c-small);font-size:12px;line-height:1.45;padding-left:1px}
+  ul.bul li .subnote:empty{display:none}
+  .editing ul.bul li .subnote:empty{display:block}
+  ul.bul li:has(.bigtext){position:relative;padding-right:26px}
+  .editing ul.bul li:has(.bigtext)>.del{position:absolute;top:4px;right:2px;margin:0}
   .clr input[type=color]{width:22px;height:20px;border:1px solid #2c3850;border-radius:5px;background:none;padding:0;cursor:pointer}
 
   /* ===== 卡片瀑布流 ===== */
@@ -231,12 +238,10 @@
     <button class="btn cardbtn" onclick="addCard()">＋ 卡片</button>
     <button class="btn cardbtn" onclick="addSection()">＋ 分类</button>
     <button class="btn" id="layoutBtn" onclick="toggleLayout()">🔧 排版</button>
-    <label class="clr">大字色<input type="color" id="cBig" value="#e7ebf3" oninput="setColor()"></label>
-    <label class="clr">小字色<input type="color" id="cSmall" value="#828ea6" oninput="setColor()"></label>
     <button class="btn" onclick="saveCloud()">☁️ 保存到云端</button>
     <button class="btn" onclick="loadCloud(true)">⟳ 重载</button>
     <span class="status" id="status"></span>
-    <span class="hint">📝<b>编辑</b>：直接点文字改；粘贴自动套用「<b>大字/小字</b>」；＋卡片 ＋分类 增减内容。🔧<b>排版</b>：拖卡片<b>顶部色条</b>排序、拖<b>右下角</b>缩放。改完点☁️保存。</span>
+    <span class="hint">📝<b>编辑</b>：每行分两条——<b>上面一条大字、下面一条小字</b>，点哪条改哪条，打字或粘贴都自动套好字号；＋卡片 ＋分类 增减内容。🔧<b>排版</b>：拖卡片<b>顶部色条</b>自由摆放、拖<b>右下角</b>缩放。改完点☁️保存。</span>
   </div>
 
   <div id="content">
@@ -1045,12 +1050,13 @@
     uc.textContent=':root{--c-big:'+big+';--c-small:'+sm+'}';
   }
   function syncColorInputs(){
+    const a=document.getElementById('cBig'), b=document.getElementById('cSmall');
+    if(!a||!b) return;            // 已移除取色器时直接跳过
     const cs=getComputedStyle(document.documentElement);
     const big=(cs.getPropertyValue('--c-big')||'#e7ebf3').trim();
     const sm=(cs.getPropertyValue('--c-small')||'#828ea6').trim();
     const toHex=v=>{if(v[0]==='#'&&v.length===7)return v;const m=v.match(/\d+/g);return m?'#'+m.slice(0,3).map(n=>(+n).toString(16).padStart(2,'0')).join(''):v;};
-    document.getElementById('cBig').value=toHex(big);
-    document.getElementById('cSmall').value=toHex(sm);
+    a.value=toHex(big); b.value=toHex(sm);
   }
 
   function addRow(btn){
@@ -1058,7 +1064,7 @@
     while(ul && ul.tagName!=='UL') ul=ul.previousElementSibling;
     if(!ul) return;
     const li=document.createElement('li');
-    li.innerHTML='<span class="bigtext ph" data-ph="要点（大字）"></span><span class="wy ph" data-ph="原因（小字）"></span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
+    li.innerHTML='<div class="bigtext ph" data-ph="大字要点（点这条打字）"></div><div class="subnote ph" data-ph="小字说明（不填可空着）"></div><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
     li.draggable=layout;
     ul.appendChild(li);
   }
@@ -1093,7 +1099,7 @@
       '<h3 class="ti ph" data-ph="卡片标题（点这里输入）"></h3>'+
       '<div class="q">核心问题：<b class="ph" data-ph="点这里写核心问题"></b></div>'+
       '<ul class="bul">'+
-        '<li><span class="bigtext ph" data-ph="要点（大字）"></span><span class="wy ph" data-ph="原因（小字）"></span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>'+
+        '<li><div class="bigtext ph" data-ph="大字要点（点这条打字）"></div><div class="subnote ph" data-ph="小字说明（不填可空着）"></div><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>'+
       '</ul>'+
       '<button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>'+
       '<div class="why"><b>为什么：</b><span class="ph" data-ph="点这里补充逻辑"></span></div>'+
