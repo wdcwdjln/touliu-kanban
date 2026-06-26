@@ -39,8 +39,18 @@
   .summary{margin:12px 0 6px;background:linear-gradient(120deg,#141b2b,#16142a);border:1px solid #2c3850;border-radius:12px;padding:11px 14px;font-size:12.5px;color:#c7d0e0}
   .summary b{color:#9fc0ff}
   h3.sec{font-size:21px;color:#eef2fa;margin:24px 2px 10px;font-weight:800;letter-spacing:.5px;border-left:4px solid var(--blue);padding-left:11px}
-  .fontbtn{display:none}.editing .fontbtn{display:inline-block}
+  /* 分类（大标题）增删控件 */
+  .sectools{display:none;margin-left:12px;vertical-align:middle}
+  .editing .sectools{display:inline-block}
+  .delsec{border:1px solid #3b2530;background:#261720;color:#ff8a93;border-radius:7px;
+    padding:2px 9px;font-size:11px;line-height:1.3;cursor:pointer;font-weight:600}
+  .delsec:hover{border-color:#f0616d;background:#341923}
   .clr{font-size:11px;color:var(--sub);display:inline-flex;align-items:center;gap:3px;cursor:pointer}
+  /* 隐藏云端历史里那颗多余的「+卡片」（顶栏已有，去重更清爽） */
+  #content .contenttools{display:none!important}
+  /* 占位提示：看得见、不用删、一输入就消失 */
+  .ph:empty::before{content:attr(data-ph);color:var(--faint);font-weight:400;font-style:normal;opacity:.85;pointer-events:none}
+  ul.bul li .wy.ph:empty::before{content:attr(data-ph);color:var(--faint)}
   .clr input[type=color]{width:22px;height:20px;border:1px solid #2c3850;border-radius:5px;background:none;padding:0;cursor:pointer}
 
   /* ===== 卡片瀑布流 ===== */
@@ -48,10 +58,22 @@
   .card{width:320px;flex:0 0 auto;border-radius:14px;overflow:hidden;
     background:linear-gradient(180deg,#161c2a,#11151f);border:1px solid var(--line);box-shadow:0 6px 22px rgba(0,0,0,.28)}
   @media(max-width:700px){.wrap{padding:0 16px 90px}.bar{padding:10px 16px;margin:0 -16px 6px}.card{width:100%}}
-  /* 排版模式：拖动换位 + 四角缩放 */
-  .layout .card{resize:both;overflow:auto;cursor:grab;min-width:240px;min-height:110px}
-  .layout .card:active{cursor:grabbing}
-  .layout .card.dragging{opacity:.45}
+  /* 排版模式：顶部色条=拖动手柄、右下角缩放、卡内可滚动 */
+  .layout .card{resize:both;overflow:auto;min-width:240px;min-height:96px}
+  .layout .card.dragging{opacity:.5;outline:2px dashed var(--blue);outline-offset:2px}
+  .layout .card>.top{height:22px;cursor:grab;position:sticky;top:0;z-index:4;
+    display:flex;align-items:center;justify-content:center}
+  .layout .card>.top::after{content:"⠿ 按住拖动排序";font-size:10px;font-weight:700;letter-spacing:1px;
+    color:rgba(255,255,255,.92);text-shadow:0 1px 2px rgba(0,0,0,.4)}
+  .layout .card>.top:active{cursor:grabbing}
+  body.cardmoving,body.cardmoving *{user-select:none!important}
+  body.cardmoving{cursor:grabbing}
+  /* 滚动条美化（卡内 + 整页） */
+  .card::-webkit-scrollbar{width:9px;height:9px}
+  .card::-webkit-scrollbar-thumb{background:#2c3850;border-radius:6px;border:2px solid transparent;background-clip:content-box}
+  .card::-webkit-scrollbar-thumb:hover{background:#3a4a6a;background-clip:content-box}
+  .card::-webkit-scrollbar-track{background:transparent}
+  .card{scrollbar-width:thin;scrollbar-color:#2c3850 transparent}
   .card.dragover{outline:2px dashed var(--blue);outline-offset:3px}
   /* 枝条拖拽吸附 */
   .layout .card li{cursor:grab}
@@ -198,16 +220,15 @@
   <div class="bar">
     <span class="logo">⚡ 千川全域投流 · 知识看板</span>
     <button class="btn" id="editBtn" onclick="toggleEdit()">📝 编辑</button>
-    <button class="btn cardbtn" onclick="addCard()">+ 卡片</button>
-    <button class="btn fontbtn" onclick="setFont(true)">A＋ 大字</button>
-    <button class="btn fontbtn" onclick="setFont(false)">A－ 小字</button>
+    <button class="btn cardbtn" onclick="addCard()">＋ 卡片</button>
+    <button class="btn cardbtn" onclick="addSection()">＋ 分类</button>
     <button class="btn" id="layoutBtn" onclick="toggleLayout()">🔧 排版</button>
-    <label class="clr">大字<input type="color" id="cBig" value="#e7ebf3" oninput="setColor()"></label>
-    <label class="clr">小字<input type="color" id="cSmall" value="#828ea6" oninput="setColor()"></label>
+    <label class="clr">大字色<input type="color" id="cBig" value="#e7ebf3" oninput="setColor()"></label>
+    <label class="clr">小字色<input type="color" id="cSmall" value="#828ea6" oninput="setColor()"></label>
     <button class="btn" onclick="saveCloud()">☁️ 保存到云端</button>
     <button class="btn" onclick="loadCloud(true)">⟳ 重载</button>
     <span class="status" id="status"></span>
-    <span class="hint">📝编辑：删/加行、选中文字点<b>大字/小字</b>调字号。🔧排版：<b>拖动卡片换位</b>、拖<b>右下角</b>缩放。改完点保存。</span>
+    <span class="hint">📝<b>编辑</b>：直接点文字改；粘贴自动套用「<b>大字/小字</b>」；＋卡片 ＋分类 增减内容。🔧<b>排版</b>：拖卡片<b>顶部色条</b>排序、拖<b>右下角</b>缩放。改完点☁️保存。</span>
   </div>
 
   <div id="content">
@@ -794,16 +815,13 @@
     if(layout) toggleLayout();           // 进文字编辑前先退排版
     editing=!editing;
     ensureCardControls();
+    ensureSectionControls();
     document.getElementById('content').contentEditable=editing;
     document.body.classList.toggle('editing',editing);
     const b=document.getElementById('editBtn');
     b.classList.toggle('on',editing);
     b.textContent=editing?'✅ 完成':'📝 编辑';
-    setStatus(editing?'编辑中…选中文字点 大字/小字 调字号':'');
-  }
-  function setFont(big){
-    try{document.execCommand('styleWithCSS',false,true);}catch(e){}
-    document.execCommand('fontSize',false, big?'5':'3');
+    setStatus(editing?'编辑中…点文字直接改；粘贴自动套用大字/小字':'');
   }
   function toggleLayout(){
     if(editing) toggleEdit();             // 进排版前先退文字编辑
@@ -814,14 +832,54 @@
     b.textContent=layout?'✅ 完成排版':'🔧 排版';
     syncLayoutDraggables();
     clearDropMarks();
-    setStatus(layout?'排版中…拖卡片或枝条；枝条可吸附到上方/下方/内部':'');
+    setStatus(layout?'排版中…抓卡片顶部色条拖动排序、拖右下角缩放':'');
   }
   // 拖动换位：卡片、任意层级枝条分开处理
   let dragEl=null, dragType='';
   function syncLayoutDraggables(){
-    document.querySelectorAll('.card').forEach(c=>c.draggable=layout);
+    // 卡片改用「顶部色条手柄 + 指针拖动」，关掉原生拖拽避免和缩放/选区打架
+    document.querySelectorAll('.card').forEach(c=>c.draggable=false);
     document.querySelectorAll('.card li').forEach(li=>li.draggable=layout);
   }
+  /* ===== 卡片排序：抓顶部色条，指针拖动，实时插位（含最后一张） ===== */
+  let cardDrag=null;
+  document.addEventListener('pointerdown',e=>{
+    if(!layout||e.button!==0)return;
+    const top=e.target.closest('.top');
+    if(!top)return;
+    const card=top.parentElement;
+    if(!card||!card.classList.contains('card'))return;
+    cardDrag={card,moved:false};
+    card.classList.add('dragging');
+    document.body.classList.add('cardmoving');
+    if(top.setPointerCapture){try{top.setPointerCapture(e.pointerId);}catch(_){}}
+    e.preventDefault();e.stopPropagation();
+  },true);
+  document.addEventListener('pointermove',e=>{
+    if(!cardDrag)return;
+    e.preventDefault();
+    if(e.clientY>window.innerHeight-60)window.scrollBy(0,22);
+    else if(e.clientY<72)window.scrollBy(0,-22);
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    if(!el)return;
+    const over=el.closest?el.closest('.card'):null;
+    if(over&&over!==cardDrag.card){
+      const r=over.getBoundingClientRect();
+      const after=e.clientX>r.left+r.width/2;
+      over.parentElement.insertBefore(cardDrag.card,after?over.nextSibling:over);
+      cardDrag.moved=true;
+    }else{
+      const grp=el.closest?el.closest('.cards'):null;
+      if(grp&&!grp.contains(cardDrag.card)){grp.appendChild(cardDrag.card);cardDrag.moved=true;}
+    }
+  },true);
+  document.addEventListener('pointerup',()=>{
+    if(!cardDrag)return;
+    cardDrag.card.classList.remove('dragging');
+    document.body.classList.remove('cardmoving');
+    if(cardDrag.moved)setStatus('已调整卡片顺序，记得保存');
+    cardDrag=null;
+  },true);
   function clearDropMarks(){
     document.querySelectorAll('.dragover,.dropbefore,.dropafter,.dropinside')
       .forEach(x=>x.classList.remove('dragover','dropbefore','dropafter','dropinside'));
@@ -964,7 +1022,7 @@
     while(ul && ul.tagName!=='UL') ul=ul.previousElementSibling;
     if(!ul) return;
     const li=document.createElement('li');
-    li.innerHTML='新要点（点这里改） <span class="wy">原因（点这里改）</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
+    li.innerHTML='<span class="bigtext ph" data-ph="要点（大字）"></span><span class="wy ph" data-ph="原因（小字）"></span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
     li.draggable=layout;
     ul.appendChild(li);
   }
@@ -990,28 +1048,74 @@
     const groups=document.querySelectorAll('#content .cards');
     return fromSelection||groups[groups.length-1]||null;
   }
-  function addCard(){
-    ensureCardControls();
-    const group=activeCardsGroup();
-    if(!group) return;
+  function makeCardEl(){
     const card=document.createElement('div');
     card.className='card c-blue';
     card.innerHTML='<div class="top"></div><div class="pad">'+
       '<div class="cardtools" contenteditable="false"><button class="delcard" contenteditable="false" onclick="delCard(this)">删除卡片</button></div>'+
-      '<span class="chip">新增 · 分类</span>'+
-      '<h3 class="ti">新卡片标题</h3>'+
-      '<div class="q">核心问题：<b>点这里改问题</b></div>'+
+      '<span class="chip">分类</span>'+
+      '<h3 class="ti ph" data-ph="卡片标题（点这里输入）"></h3>'+
+      '<div class="q">核心问题：<b class="ph" data-ph="点这里写核心问题"></b></div>'+
       '<ul class="bul">'+
-        '<li>新要点（点这里改） <span class="wy">原因（点这里改）</span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>'+
+        '<li><span class="bigtext ph" data-ph="要点（大字）"></span><span class="wy ph" data-ph="原因（小字）"></span><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>'+
       '</ul>'+
       '<button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>'+
-      '<div class="why"><b>为什么：</b>点这里补充逻辑。</div>'+
+      '<div class="why"><b>为什么：</b><span class="ph" data-ph="点这里补充逻辑"></span></div>'+
     '</div>';
-    card.draggable=layout;
+    card.draggable=false;
+    return card;
+  }
+  function addCard(){
+    ensureCardControls();
+    const group=activeCardsGroup();
+    if(!group) return;
+    const card=makeCardEl();
     group.appendChild(card);
     syncLayoutDraggables();
     card.scrollIntoView({behavior:'smooth',block:'center'});
     setStatus('已新增卡片，编辑后记得保存');
+  }
+  /* ===== 分类（大标题）增 / 删 ===== */
+  function ensureSectionControls(){
+    document.querySelectorAll('#content h3.sec').forEach(h=>{
+      if(h.querySelector(':scope > .sectools')) return;
+      const t=document.createElement('span');
+      t.className='sectools';
+      t.contentEditable='false';
+      t.innerHTML='<button class="delsec" contenteditable="false" onclick="delSection(this)">删分类</button>';
+      h.appendChild(t);
+    });
+  }
+  function addSection(){
+    ensureCardControls();
+    const content=document.getElementById('content');
+    const h=document.createElement('h3');
+    h.className='sec';
+    h.appendChild(document.createTextNode('新分类标题'));
+    const t=document.createElement('span');
+    t.className='sectools'; t.contentEditable='false';
+    t.innerHTML='<button class="delsec" contenteditable="false" onclick="delSection(this)">删分类</button>';
+    h.appendChild(t);
+    const cards=document.createElement('div');
+    cards.className='cards';
+    cards.appendChild(makeCardEl());
+    content.appendChild(h);
+    content.appendChild(cards);
+    syncLayoutDraggables();
+    h.scrollIntoView({behavior:'smooth',block:'center'});
+    setStatus('已新增分类，记得保存');
+  }
+  function delSection(btn){
+    const h=btn.closest('h3.sec');
+    if(!h) return;
+    const title=(h.textContent||'').replace('删分类','').trim()||'这个分类';
+    if(!confirm('删除分类「'+title+'」及其下所有卡片？')) return;
+    let n=h.nextElementSibling;
+    while(n && !(n.tagName==='H3'&&n.classList.contains('sec'))){
+      const next=n.nextElementSibling; n.remove(); n=next;
+    }
+    h.remove();
+    setStatus('已删除分类，记得保存');
   }
   function delCard(btn){
     const card=btn.closest('.card');
@@ -1130,7 +1234,10 @@
   const CLOUD_ID='019ee435-2027-78f6-93a3-0692a06ee225';
   const LS_KEY='touliu_outline_v5', BASE='https://jsonblob.com/api/jsonBlob', URL_=BASE+'/'+CLOUD_ID;
   async function saveCloud(){
-    const html=document.getElementById('content').innerHTML;
+    // 存之前剥掉脚本注入的「删分类」控件，云端只留干净内容
+    const snap=document.getElementById('content').cloneNode(true);
+    snap.querySelectorAll('.sectools').forEach(x=>x.remove());
+    const html=snap.innerHTML;
     localStorage.setItem(LS_KEY,html);
     setStatus('保存中…');
     try{
@@ -1141,14 +1248,24 @@
   async function loadCloud(manual){
     try{
       const res=await fetch(URL_,{headers:{'Accept':'application/json'}});
-      if(res.ok){const d=await res.json();if(d&&d.html){document.getElementById('content').innerHTML=d.html;localStorage.setItem(LS_KEY,d.html);ensureCardControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('已载入云端版 '+time());return;}}
+      if(res.ok){const d=await res.json();if(d&&d.html){document.getElementById('content').innerHTML=d.html;localStorage.setItem(LS_KEY,d.html);ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('已载入云端版 '+time());return;}}
     }catch(e){}
     const local=localStorage.getItem(LS_KEY);
-    if(local){document.getElementById('content').innerHTML=local;ensureCardControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('云端没连上·载入本地版');}
+    if(local){document.getElementById('content').innerHTML=local;ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('云端没连上·载入本地版');}
     else if(manual){setStatus('云端暂空·先保存一次');}
   }
   function time(){const d=new Date();return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');}
-  loadCloud(false).finally(()=>{ensureCardControls();enhanceImages(document);syncLayoutDraggables();syncColorInputs();});
+  // 粘贴只插纯文本：落进哪个框就自动套那个框的字号/颜色（大字框=大字，小字框=小字）；图片粘贴照旧
+  document.getElementById('content').addEventListener('paste',function(e){
+    const dt=e.clipboardData;if(!dt)return;
+    const types=Array.prototype.slice.call(dt.types||[]);
+    if((dt.files&&dt.files.length)||types.indexOf('Files')>-1)return;
+    const text=dt.getData('text/plain');
+    if(text==null)return;
+    e.preventDefault();
+    document.execCommand('insertText',false,text);
+  });
+  loadCloud(false).finally(()=>{ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();syncColorInputs();});
 </script>
 </body>
 </html>
