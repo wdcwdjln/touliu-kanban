@@ -1069,25 +1069,32 @@
   }
 
   function normalizeRows(root=document){
+    root.querySelectorAll('#content .subnote.ph').forEach(n=>{
+      if(!n.textContent.trim()) n.remove();
+    });
+    root.querySelectorAll('#content .bigtext.ph').forEach(n=>{
+      if(n.closest('li')?.querySelector(':scope > .subnote')) n.remove();
+    });
     root.querySelectorAll('#content ul.bul > li').forEach(li=>{
       if(li.querySelector(':scope > .bigtext,:scope > .subnote')) return;
       const del=li.querySelector(':scope > .del');
       const wy=li.querySelector(':scope > .wy');
       const big=document.createElement('div');
       big.className='bigtext';
-      const small=document.createElement('div');
-      small.className='subnote';
       Array.from(li.childNodes).forEach(n=>{
         if(n===del || n===wy) return;
         big.appendChild(n);
       });
-      if(wy) small.textContent=wy.textContent.replace(/^—\s*/,'').trim();
+      const smallText=wy ? wy.textContent.replace(/^—\s*/,'').trim() : '';
       li.textContent='';
       li.appendChild(big);
-      li.appendChild(small);
+      if(smallText){
+        const small=document.createElement('div');
+        small.className='subnote';
+        small.textContent=smallText;
+        li.appendChild(small);
+      }
       if(del) li.appendChild(del);
-      if(!big.textContent.trim()) big.classList.add('ph'), big.dataset.ph='大字要点（点这条打字）';
-      if(!small.textContent.trim()) small.classList.add('ph'), small.dataset.ph='小字说明（不填可空着）';
     });
   }
 
