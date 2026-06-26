@@ -1086,13 +1086,17 @@
   function ensureSubnote(li){
     let small=li.querySelector(':scope > .subnote');
     if(!small){
-      small=document.createElement('div');
-      small.className='subnote ph';
-      small.dataset.ph='小字说明（不填可空着）';
-      small.dataset.keep='1';
+      small=makeSubnote();
       const del=li.querySelector(':scope > .del');
       li.insertBefore(small,del||null);
     }
+    return small;
+  }
+  function makeSubnote(){
+    const small=document.createElement('div');
+    small.className='subnote ph';
+    small.dataset.ph='小字说明（不填可空着）';
+    small.dataset.keep='1';
     return small;
   }
   function normalizeRows(root=document,opts={}){
@@ -1398,10 +1402,13 @@
     if(field&&field.classList.contains('subnote')){
       e.preventDefault();
       const li=field.closest('li');
-      const next=document.createElement('li');
-      next.innerHTML='<div class="bigtext ph" data-ph="大字要点（点这条打字）"></div><div class="subnote ph" data-ph="小字说明（不填可空着）" data-keep="1"></div><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
-      li.parentElement.insertBefore(next,li.nextSibling);
-      focusEditable(next.querySelector('.bigtext'));
+      const next=makeSubnote();
+      li.insertBefore(next,field.nextElementSibling&&field.nextElementSibling.classList.contains('subnote')?field.nextElementSibling:null);
+      if(!next.nextSibling){
+        const del=li.querySelector(':scope > .del');
+        if(del) li.insertBefore(next,del);
+      }
+      focusEditable(next);
     }
   });
   document.getElementById('content').addEventListener('input',function(){setTimeout(()=>normalizeRows(document,{keepFresh:true}),0);});
