@@ -55,12 +55,12 @@
   ul.bul li:has(> .bigtext){padding-left:0}
   ul.bul li:has(> .bigtext)::before{content:none}
   ul.bul li .bigtext{display:block;position:relative;color:var(--c-big);font-size:13.5px;line-height:1.5;min-height:1.25em;padding-left:16px}
-  ul.bul li .bigtext:not(:empty)::before{content:"•";position:absolute;left:2px;top:0;color:var(--ac,#7db0ff);font-weight:800}
+  ul.bul li .bigtext:not(:empty)::before{content:"•";position:absolute;left:2px;top:0;color:var(--ac,#7db0ff);font-size:13px;font-weight:800;line-height:1.5}
   ul.bul li .bigtext:empty{display:none}
   .editing ul.bul li .bigtext:empty{display:block}
-  ul.bul li .subnote{display:block;color:var(--c-small);font-size:12px;line-height:1.45;position:relative;padding-left:22px}
+  ul.bul li .subnote{display:block;color:var(--c-small);font-size:12px;line-height:1.45;position:relative;margin-left:18px;padding-left:16px}
   /* 小字行：只有自己的小灰点，不继承主列表的大点 */
-  ul.bul li .subnote:not(:empty)::before{content:"•";position:absolute;left:10px;top:3px;color:var(--c-small);font-size:8px;font-weight:800;line-height:1}
+  ul.bul li .subnote:not(:empty)::before{content:"•";position:absolute;left:4px;top:4px;color:var(--c-small);font-size:7px;font-weight:800;line-height:1}
   .editing ul.bul li .subnote.ph:empty::before{content:attr(data-ph);position:static;font-size:12px;font-weight:400;color:var(--faint)}
   ul.bul li .subnote:empty{display:none}
   .editing ul.bul li .subnote:empty{display:block}
