@@ -53,6 +53,10 @@
   .editing .q b.ph,.editing .why .ph{display:inline-block;min-width:90px}
   /* 新增行：大字一整行、小字一整行——点哪行就是哪种字，整行都能点 */
   ul.bul li .bigtext{display:block;color:var(--c-big);font-size:13.5px;line-height:1.5;min-height:1.25em}
+  ul.bul li .bigtext:empty{display:none}
+  .editing ul.bul li .bigtext:empty{display:block}
+  ul.bul li:has(.bigtext:empty)::before{content:none}          /* 大字空着时：不显示那颗大圆点（避免孤立的大点） */
+  .editing ul.bul li:has(.bigtext:empty)::before{content:"•"}  /* 但编辑时仍显示，方便对位 */
   ul.bul li .subnote{display:block;color:var(--c-small);font-size:12px;line-height:1.45;position:relative;padding-left:16px}
   /* 小字行：自己的小灰点，比大字点更小、同色、向右缩进，不跟大字点对齐 */
   ul.bul li .subnote::before{content:"•";position:absolute;left:6px;top:3px;color:var(--c-small);font-size:9px;font-weight:800;line-height:1}
