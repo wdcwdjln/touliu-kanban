@@ -60,6 +60,11 @@
   /* 普通浏览时：过高的卡片限高、卡内出滚动条，看板更整齐（编辑时自动展开、不限高） */
   .card:not(.mcard){max-height:520px;overflow-y:auto;overflow-x:hidden}
   .editing .card,.layout .card{max-height:none}
+  /* 自由画布：卡片绝对定位、可重叠、想放哪放哪（位置随云保存） */
+  .cards.freecanvas{display:block;position:relative}
+  .cards.freecanvas>.card{position:absolute;margin:0}
+  .cards.freecanvas>.card:not(.mcard){max-height:none}
+  .layout .cards.freecanvas{outline:1px dashed #243150;outline-offset:6px;border-radius:14px}
   @media(max-width:700px){.wrap{padding:0 16px 90px}.bar{padding:10px 16px;margin:0 -16px 6px}.card{width:100%}}
   /* 排版模式：顶部色条=拖动手柄、右下角缩放、卡内可滚动 */
   .layout .card{resize:both;overflow:auto;min-width:240px;min-height:96px}
@@ -835,7 +840,7 @@
     b.textContent=layout?'✅ 完成排版':'🔧 排版';
     syncLayoutDraggables();
     clearDropMarks();
-    setStatus(layout?'排版中…抓卡片顶部色条拖动排序、拖右下角缩放':'');
+    setStatus(layout?'排版中…抓卡片顶部色条拖到任意位置（可重叠）、拖右下角缩放':'');
   }
   // 拖动换位：卡片、任意层级枝条分开处理
   let dragEl=null, dragType='';
@@ -844,16 +849,42 @@
     document.querySelectorAll('.card').forEach(c=>c.draggable=false);
     document.querySelectorAll('.card li').forEach(li=>li.draggable=layout);
   }
-  /* ===== 卡片排序：抓顶部色条，指针拖动，实时插位（含最后一张） ===== */
+  /* ===== 自由画布：抓顶部色条，把卡片拖到任意位置（可重叠、停哪是哪） ===== */
   let cardDrag=null;
+  // 第一次在某个分类里拖卡片时，把这一组「冻结」成自由画布：所有卡片就地变绝对定位，谁也不挤谁
+  function freezeGroup(group){
+    if(group.classList.contains('freecanvas')) return;
+    const gr=group.getBoundingClientRect();
+    const cards=Array.prototype.filter.call(group.children,c=>c.classList&&c.classList.contains('card'));
+    const snap=cards.map(c=>{const r=c.getBoundingClientRect();return {c,left:r.left-gr.left,top:r.top-gr.top,w:r.width};});
+    group.classList.add('freecanvas');
+    snap.forEach(p=>{
+      p.c.style.position='absolute';
+      p.c.style.left=Math.round(p.left)+'px';
+      p.c.style.top=Math.round(p.top)+'px';
+      p.c.style.width=Math.round(p.w)+'px';
+      p.c.style.margin='0';
+    });
+    fitGroupHeight(group);
+  }
+  function fitGroupHeight(group){
+    let mb=120;
+    Array.prototype.forEach.call(group.children,c=>{if(c.classList&&c.classList.contains('card'))mb=Math.max(mb,c.offsetTop+c.offsetHeight);});
+    group.style.height=Math.round(mb+24)+'px';
+  }
   document.addEventListener('pointerdown',e=>{
     if(!layout||e.button!==0)return;
     const top=e.target.closest('.top');
     if(!top)return;
     const card=top.parentElement;
     if(!card||!card.classList.contains('card'))return;
-    cardDrag={card,moved:false};
+    const group=card.parentElement;
+    if(!group||!group.classList.contains('cards'))return;
+    freezeGroup(group);
+    const cr=card.getBoundingClientRect();
+    cardDrag={card,group,offX:e.clientX-cr.left,offY:e.clientY-cr.top,moved:false};
     card.classList.add('dragging');
+    card.style.zIndex='999';
     document.body.classList.add('cardmoving');
     if(top.setPointerCapture){try{top.setPointerCapture(e.pointerId);}catch(_){}}
     e.preventDefault();e.stopPropagation();
@@ -861,26 +892,28 @@
   document.addEventListener('pointermove',e=>{
     if(!cardDrag)return;
     e.preventDefault();
-    if(e.clientY>window.innerHeight-60)window.scrollBy(0,22);
-    else if(e.clientY<72)window.scrollBy(0,-22);
-    const el=document.elementFromPoint(e.clientX,e.clientY);
-    if(!el)return;
-    const over=el.closest?el.closest('.card'):null;
-    if(over&&over!==cardDrag.card){
-      const r=over.getBoundingClientRect();
-      const after=e.clientX>r.left+r.width/2;
-      over.parentElement.insertBefore(cardDrag.card,after?over.nextSibling:over);
-      cardDrag.moved=true;
-    }else{
-      const grp=el.closest?el.closest('.cards'):null;
-      if(grp&&!grp.contains(cardDrag.card)){grp.appendChild(cardDrag.card);cardDrag.moved=true;}
-    }
+    if(e.clientY>window.innerHeight-60)window.scrollBy(0,20);
+    else if(e.clientY<72)window.scrollBy(0,-20);
+    const gr=cardDrag.group.getBoundingClientRect();
+    let nl=e.clientX-gr.left-cardDrag.offX;
+    let nt=e.clientY-gr.top-cardDrag.offY;
+    if(nl<0)nl=0; if(nt<0)nt=0;
+    cardDrag.card.style.left=Math.round(nl)+'px';
+    cardDrag.card.style.top=Math.round(nt)+'px';
+    const need=nt+cardDrag.card.offsetHeight+24;
+    if(need>cardDrag.group.offsetHeight)cardDrag.group.style.height=Math.round(need)+'px';
+    cardDrag.moved=true;
   },true);
   document.addEventListener('pointerup',()=>{
     if(!cardDrag)return;
     cardDrag.card.classList.remove('dragging');
+    cardDrag.card.style.zIndex='';
+    if(cardDrag.moved){
+      cardDrag.group.appendChild(cardDrag.card); // 最近拖动的压在最上层
+      fitGroupHeight(cardDrag.group);
+      setStatus('已自由摆放，记得保存');
+    }
     document.body.classList.remove('cardmoving');
-    if(cardDrag.moved)setStatus('已调整卡片顺序，记得保存');
     cardDrag=null;
   },true);
   function clearDropMarks(){
@@ -1074,6 +1107,13 @@
     if(!group) return;
     const card=makeCardEl();
     group.appendChild(card);
+    if(group.classList.contains('freecanvas')){
+      card.style.position='absolute';
+      card.style.left='16px';
+      card.style.top=((group.offsetHeight||40)-24)+'px'; // 落在现有卡片下方
+      card.style.width='320px';
+      fitGroupHeight(group);
+    }
     syncLayoutDraggables();
     card.scrollIntoView({behavior:'smooth',block:'center'});
     setStatus('已新增卡片，编辑后记得保存');
