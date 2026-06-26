@@ -837,6 +837,7 @@
     editing=!editing;
     ensureCardControls();
     ensureSectionControls();
+    normalizeRows();
     document.getElementById('content').contentEditable=editing;
     document.body.classList.toggle('editing',editing);
     const b=document.getElementById('editBtn');
@@ -1067,6 +1068,29 @@
     a.value=toHex(big); b.value=toHex(sm);
   }
 
+  function normalizeRows(root=document){
+    root.querySelectorAll('#content ul.bul > li').forEach(li=>{
+      if(li.querySelector(':scope > .bigtext,:scope > .subnote')) return;
+      const del=li.querySelector(':scope > .del');
+      const wy=li.querySelector(':scope > .wy');
+      const big=document.createElement('div');
+      big.className='bigtext';
+      const small=document.createElement('div');
+      small.className='subnote';
+      Array.from(li.childNodes).forEach(n=>{
+        if(n===del || n===wy) return;
+        big.appendChild(n);
+      });
+      if(wy) small.textContent=wy.textContent.replace(/^—\s*/,'').trim();
+      li.textContent='';
+      li.appendChild(big);
+      li.appendChild(small);
+      if(del) li.appendChild(del);
+      if(!big.textContent.trim()) big.classList.add('ph'), big.dataset.ph='大字要点（点这条打字）';
+      if(!small.textContent.trim()) small.classList.add('ph'), small.dataset.ph='小字说明（不填可空着）';
+    });
+  }
+
   function addRow(btn){
     let ul=btn.previousElementSibling;
     while(ul && ul.tagName!=='UL') ul=ul.previousElementSibling;
@@ -1075,6 +1099,7 @@
     li.innerHTML='<div class="bigtext ph" data-ph="大字要点（点这条打字）"></div><div class="subnote ph" data-ph="小字说明（不填可空着）"></div><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
     li.draggable=layout;
     ul.appendChild(li);
+    li.querySelector('.bigtext').focus();
   }
   function delRow(btn){const li=btn.closest('li');if(li)li.remove();}
 
@@ -1292,6 +1317,7 @@
   const LS_KEY='touliu_outline_v5', BASE='https://jsonblob.com/api/jsonBlob', URL_=BASE+'/'+CLOUD_ID;
   async function saveCloud(){
     // 存之前剥掉脚本注入的「删分类」控件，云端只留干净内容
+    normalizeRows();
     const snap=document.getElementById('content').cloneNode(true);
     snap.querySelectorAll('.sectools').forEach(x=>x.remove());
     const html=snap.innerHTML;
@@ -1305,10 +1331,10 @@
   async function loadCloud(manual){
     try{
       const res=await fetch(URL_,{headers:{'Accept':'application/json'}});
-      if(res.ok){const d=await res.json();if(d&&d.html){document.getElementById('content').innerHTML=d.html;localStorage.setItem(LS_KEY,d.html);ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('已载入云端版 '+time());return;}}
+      if(res.ok){const d=await res.json();if(d&&d.html){document.getElementById('content').innerHTML=d.html;localStorage.setItem(LS_KEY,d.html);normalizeRows();ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('已载入云端版 '+time());return;}}
     }catch(e){}
     const local=localStorage.getItem(LS_KEY);
-    if(local){document.getElementById('content').innerHTML=local;ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('云端没连上·载入本地版');}
+    if(local){document.getElementById('content').innerHTML=local;normalizeRows();ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('云端没连上·载入本地版');}
     else if(manual){setStatus('云端暂空·先保存一次');}
   }
   function time(){const d=new Date();return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');}
@@ -1321,8 +1347,28 @@
     if(text==null)return;
     e.preventDefault();
     document.execCommand('insertText',false,text);
+    setTimeout(()=>normalizeRows(),0);
   });
-  loadCloud(false).finally(()=>{ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();syncColorInputs();});
+  document.getElementById('content').addEventListener('keydown',function(e){
+    if(e.key!=='Enter'||!editing) return;
+    const big=e.target.closest&&e.target.closest('.bigtext');
+    const small=e.target.closest&&e.target.closest('.subnote');
+    if(big){
+      e.preventDefault();
+      big.closest('li')?.querySelector(':scope > .subnote')?.focus();
+      return;
+    }
+    if(small){
+      e.preventDefault();
+      const li=small.closest('li');
+      const next=document.createElement('li');
+      next.innerHTML='<div class="bigtext ph" data-ph="大字要点（点这条打字）"></div><div class="subnote ph" data-ph="小字说明（不填可空着）"></div><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
+      li.parentElement.insertBefore(next,li.nextSibling);
+      next.querySelector('.bigtext').focus();
+    }
+  });
+  document.getElementById('content').addEventListener('input',function(){setTimeout(()=>normalizeRows(),0);});
+  loadCloud(false).finally(()=>{normalizeRows();ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();syncColorInputs();});
 </script>
 </body>
 </html>
