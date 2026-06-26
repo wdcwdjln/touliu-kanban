@@ -1068,14 +1068,45 @@
     a.value=toHex(big); b.value=toHex(sm);
   }
 
-  function normalizeRows(root=document){
-    root.querySelectorAll('#content .subnote.ph').forEach(n=>{
-      if(!n.textContent.trim()) n.remove();
+  function focusEditable(el){
+    if(!el) return;
+    const range=document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    const sel=window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  function activeEditField(){
+    const sel=window.getSelection();
+    const node=sel&&sel.rangeCount?sel.anchorNode:null;
+    const el=node&&(node.nodeType===1?node:node.parentElement);
+    return el&&el.closest?el.closest('.bigtext,.subnote'):null;
+  }
+  function ensureSubnote(li){
+    let small=li.querySelector(':scope > .subnote');
+    if(!small){
+      small=document.createElement('div');
+      small.className='subnote ph';
+      small.dataset.ph='小字说明（不填可空着）';
+      small.dataset.keep='1';
+      const del=li.querySelector(':scope > .del');
+      li.insertBefore(small,del||null);
+    }
+    return small;
+  }
+  function normalizeRows(root=document,opts={}){
+    const keepFresh=!!opts.keepFresh;
+    const dropEmpty=!!opts.dropEmpty;
+    const keepEditing=editing && !dropEmpty;
+    const base=(root.matches&&root.matches('#content'))?root:(root.querySelector&&root.querySelector('#content'))||root;
+    base.querySelectorAll('.subnote.ph').forEach(n=>{
+      if(!n.textContent.trim() && !(keepEditing || (keepFresh && n.dataset.keep==='1'))) n.remove();
     });
-    root.querySelectorAll('#content .bigtext.ph').forEach(n=>{
-      if(n.closest('li')?.querySelector(':scope > .subnote')) n.remove();
+    base.querySelectorAll('.bigtext.ph').forEach(n=>{
+      if(!n.textContent.trim() && !keepEditing && n.closest('li')?.querySelector(':scope > .subnote')) n.remove();
     });
-    root.querySelectorAll('#content ul.bul > li').forEach(li=>{
+    base.querySelectorAll('ul.bul > li').forEach(li=>{
       if(li.querySelector(':scope > .bigtext,:scope > .subnote')) return;
       const del=li.querySelector(':scope > .del');
       const wy=li.querySelector(':scope > .wy');
@@ -1103,10 +1134,10 @@
     while(ul && ul.tagName!=='UL') ul=ul.previousElementSibling;
     if(!ul) return;
     const li=document.createElement('li');
-    li.innerHTML='<div class="bigtext ph" data-ph="大字要点（点这条打字）"></div><div class="subnote ph" data-ph="小字说明（不填可空着）"></div><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
+    li.innerHTML='<div class="bigtext ph" data-ph="大字要点（点这条打字）"></div><div class="subnote ph" data-ph="小字说明（不填可空着）" data-keep="1"></div><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
     li.draggable=layout;
     ul.appendChild(li);
-    li.querySelector('.bigtext').focus();
+    focusEditable(li.querySelector('.bigtext'));
   }
   function delRow(btn){const li=btn.closest('li');if(li)li.remove();}
 
@@ -1139,7 +1170,7 @@
       '<h3 class="ti ph" data-ph="卡片标题（点这里输入）"></h3>'+
       '<div class="q">核心问题：<b class="ph" data-ph="点这里写核心问题"></b></div>'+
       '<ul class="bul">'+
-        '<li><div class="bigtext ph" data-ph="大字要点（点这条打字）"></div><div class="subnote ph" data-ph="小字说明（不填可空着）"></div><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>'+
+        '<li><div class="bigtext ph" data-ph="大字要点（点这条打字）"></div><div class="subnote ph" data-ph="小字说明（不填可空着）" data-keep="1"></div><button class="del" contenteditable="false" onclick="delRow(this)">✕</button></li>'+
       '</ul>'+
       '<button class="addrow" contenteditable="false" onclick="addRow(this)">+ 新增行</button>'+
       '<div class="why"><b>为什么：</b><span class="ph" data-ph="点这里补充逻辑"></span></div>'+
@@ -1324,7 +1355,7 @@
   const LS_KEY='touliu_outline_v5', BASE='https://jsonblob.com/api/jsonBlob', URL_=BASE+'/'+CLOUD_ID;
   async function saveCloud(){
     // 存之前剥掉脚本注入的「删分类」控件，云端只留干净内容
-    normalizeRows();
+    normalizeRows(document,{dropEmpty:true});
     const snap=document.getElementById('content').cloneNode(true);
     snap.querySelectorAll('.sectools').forEach(x=>x.remove());
     const html=snap.innerHTML;
@@ -1354,27 +1385,26 @@
     if(text==null)return;
     e.preventDefault();
     document.execCommand('insertText',false,text);
-    setTimeout(()=>normalizeRows(),0);
+    setTimeout(()=>normalizeRows(document,{keepFresh:true}),0);
   });
   document.getElementById('content').addEventListener('keydown',function(e){
     if(e.key!=='Enter'||!editing) return;
-    const big=e.target.closest&&e.target.closest('.bigtext');
-    const small=e.target.closest&&e.target.closest('.subnote');
-    if(big){
+    const field=activeEditField();
+    if(field&&field.classList.contains('bigtext')){
       e.preventDefault();
-      big.closest('li')?.querySelector(':scope > .subnote')?.focus();
+      focusEditable(ensureSubnote(field.closest('li')));
       return;
     }
-    if(small){
+    if(field&&field.classList.contains('subnote')){
       e.preventDefault();
-      const li=small.closest('li');
+      const li=field.closest('li');
       const next=document.createElement('li');
-      next.innerHTML='<div class="bigtext ph" data-ph="大字要点（点这条打字）"></div><div class="subnote ph" data-ph="小字说明（不填可空着）"></div><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
+      next.innerHTML='<div class="bigtext ph" data-ph="大字要点（点这条打字）"></div><div class="subnote ph" data-ph="小字说明（不填可空着）" data-keep="1"></div><button class="del" contenteditable="false" onclick="delRow(this)">✕</button>';
       li.parentElement.insertBefore(next,li.nextSibling);
-      next.querySelector('.bigtext').focus();
+      focusEditable(next.querySelector('.bigtext'));
     }
   });
-  document.getElementById('content').addEventListener('input',function(){setTimeout(()=>normalizeRows(),0);});
+  document.getElementById('content').addEventListener('input',function(){setTimeout(()=>normalizeRows(document,{keepFresh:true}),0);});
   loadCloud(false).finally(()=>{normalizeRows();ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();syncColorInputs();});
 </script>
 </body>
