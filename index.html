@@ -51,15 +51,16 @@
   /* 占位提示：只在编辑时显示、一打字就消失（普通浏览看不到，干净） */
   .editing .ph:empty::before{content:attr(data-ph);color:var(--faint);font-weight:400;font-style:normal;opacity:.9;pointer-events:none}
   .editing .q b.ph,.editing .why .ph{display:inline-block;min-width:90px}
-  /* 新增行：大字一整行、小字一整行——点哪行就是哪种字，整行都能点 */
-  ul.bul li .bigtext{display:block;color:var(--c-big);font-size:13.5px;line-height:1.5;min-height:1.25em}
+  /* 新增行：大字一整行、小字一整行。大点只属于大字，小点只属于小字 */
+  ul.bul li:has(> .bigtext){padding-left:0}
+  ul.bul li:has(> .bigtext)::before{content:none}
+  ul.bul li .bigtext{display:block;position:relative;color:var(--c-big);font-size:13.5px;line-height:1.5;min-height:1.25em;padding-left:16px}
+  ul.bul li .bigtext:not(:empty)::before{content:"•";position:absolute;left:2px;top:0;color:var(--ac,#7db0ff);font-weight:800}
   ul.bul li .bigtext:empty{display:none}
   .editing ul.bul li .bigtext:empty{display:block}
-  ul.bul li:has(.bigtext:empty)::before{content:none}          /* 大字空着时：不显示那颗大圆点（避免孤立的大点） */
-  .editing ul.bul li:has(.bigtext:empty)::before{content:"•"}  /* 但编辑时仍显示，方便对位 */
-  ul.bul li .subnote{display:block;color:var(--c-small);font-size:12px;line-height:1.45;position:relative;padding-left:16px}
-  /* 小字行：自己的小灰点，比大字点更小、同色、向右缩进，不跟大字点对齐 */
-  ul.bul li .subnote::before{content:"•";position:absolute;left:6px;top:3px;color:var(--c-small);font-size:9px;font-weight:800;line-height:1}
+  ul.bul li .subnote{display:block;color:var(--c-small);font-size:12px;line-height:1.45;position:relative;padding-left:22px}
+  /* 小字行：只有自己的小灰点，不继承主列表的大点 */
+  ul.bul li .subnote:not(:empty)::before{content:"•";position:absolute;left:10px;top:3px;color:var(--c-small);font-size:8px;font-weight:800;line-height:1}
   .editing ul.bul li .subnote.ph:empty::before{content:attr(data-ph);position:static;font-size:12px;font-weight:400;color:var(--faint)}
   ul.bul li .subnote:empty{display:none}
   .editing ul.bul li .subnote:empty{display:block}
