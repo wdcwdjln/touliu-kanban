@@ -247,7 +247,7 @@
     <button class="btn cardbtn" onclick="addSection()">＋ 分类</button>
     <button class="btn" id="layoutBtn" onclick="toggleLayout()">🔧 排版</button>
     <button class="btn" onclick="saveCloud()">☁️ 保存到云端</button>
-    <button class="btn" onclick="loadCloud(true)">⟳ 重载</button>
+    <button class="btn" onclick="location.reload()">⟳ 重载</button>
     <span class="status" id="status"></span>
     <span class="hint">📝<b>编辑</b>：每行分两条——<b>上面一条大字、下面一条小字</b>，点哪条改哪条，打字或粘贴都自动套好字号；＋卡片 ＋分类 增减内容。🔧<b>排版</b>：拖卡片<b>顶部色条</b>自由摆放、拖<b>右下角</b>缩放。改完点☁️保存。</span>
   </div>
@@ -1302,30 +1302,33 @@
     if(e.target&&e.target.closest&&e.target.closest('#content')) setTimeout(()=>enhanceImages(document),80);
   });
 
-  // 固定云端地址（跨设备同一份）
-  const CLOUD_ID='019ee435-2027-78f6-93a3-0692a06ee225';
-  const LS_KEY='touliu_outline_v5', BASE='https://jsonblob.com/api/jsonBlob', URL_=BASE+'/'+CLOUD_ID;
+  // ☁️ GitHub 直存：内容即本仓库 index.html，点「保存」=提交到 GitHub（不再用 jsonblob/本地）
+  const GH={owner:'wdcwdjln',repo:'touliu-kanban',path:'index.html',branch:'main'};
+  const TK_KEY='gh_token';
+  function ghHeaders(t){return {Authorization:'Bearer '+t,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};}
+  function b64(str){return btoa(unescape(encodeURIComponent(str)));}
   async function saveCloud(){
-    // 存之前剥掉脚本注入的「删分类」控件，云端只留干净内容
     normalizeRows(document,{dropEmpty:true});
-    const snap=document.getElementById('content').cloneNode(true);
-    snap.querySelectorAll('.sectools').forEach(x=>x.remove());
-    const html=snap.innerHTML;
-    localStorage.setItem(LS_KEY,html);
+    let t=localStorage.getItem(TK_KEY);
+    if(!t){ t=(prompt('首次保存：粘贴你的 GitHub 令牌（fine-grained，只给本仓库 Contents 读写）。只存在你这台浏览器，不会写进页面。')||'').trim(); if(!t)return; localStorage.setItem(TK_KEY,t); }
     setStatus('保存中…');
     try{
-      const res=await fetch(URL_,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({html})});
-      setStatus(res.ok?('☁️ 已存云端 '+time()):'云端失败·已存本地');
-    }catch(e){setStatus('断网·已存本地');}
-  }
-  async function loadCloud(manual){
-    try{
-      const res=await fetch(URL_,{headers:{'Accept':'application/json'}});
-      if(res.ok){const d=await res.json();if(d&&d.html){document.getElementById('content').innerHTML=d.html;localStorage.setItem(LS_KEY,d.html);normalizeRows();ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('已载入云端版 '+time());return;}}
-    }catch(e){}
-    const local=localStorage.getItem(LS_KEY);
-    if(local){document.getElementById('content').innerHTML=local;normalizeRows();ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();if(manual)setStatus('云端没连上·载入本地版');}
-    else if(manual){setStatus('云端暂空·先保存一次');}
+      const api='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.path;
+      const meta=await fetch(api+'?ref='+GH.branch,{headers:ghHeaders(t)});
+      if(meta.status===401||meta.status===403){localStorage.removeItem(TK_KEY);setStatus('令牌无效/越权，已清除，请重新点保存输入');return;}
+      if(!meta.ok){setStatus('读取失败：'+meta.status);return;}
+      const sha=(await meta.json()).sha;
+      const tpl=await (await fetch(location.origin+location.pathname+'?_='+Date.now())).text();
+      const snap=document.getElementById('content').cloneNode(true);
+      snap.querySelectorAll('.sectools').forEach(x=>x.remove());
+      let inner=snap.innerHTML; const h=inner.indexOf('<div class="hero">'); if(h>0)inner=inner.slice(h);
+      const a=tpl.indexOf('<div class="hero">'), b=tpl.indexOf('<div class="foot">');
+      if(a<0||b<0){setStatus('模板异常，未保存');return;}
+      const full=tpl.slice(0,a)+inner+'\n  </div>\n\n  '+tpl.slice(b);
+      const put=await fetch(api,{method:'PUT',headers:ghHeaders(t),body:JSON.stringify({message:'更新看板内容 '+new Date().toLocaleString('zh-CN'),content:b64(full),sha:sha,branch:GH.branch})});
+      if(put.ok){setStatus('✅ 已存 GitHub '+time()+'（约1分钟线上生效）');}
+      else{const er=await put.json().catch(function(){return {};});setStatus('保存失败：'+(er.message||put.status));}
+    }catch(e){setStatus('保存出错：'+e.message);}
   }
   function time(){const d=new Date();return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');}
   // 粘贴只插纯文本：落进哪个框就自动套那个框的字号/颜色（大字框=大字，小字框=小字）；图片粘贴照旧
