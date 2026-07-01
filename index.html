@@ -240,8 +240,18 @@
 <body>
 <div class="wrap">
 
+  <style>
+    .searchbox{flex:0 1 240px;min-width:120px;background:#0f1622;border:1px solid #2c3850;color:var(--ink);padding:6px 10px;border-radius:8px;font-size:13px;outline:none}
+    .searchbox::placeholder{color:var(--faint)}
+    .searchbox:focus{border-color:var(--blue)}
+    .searchcount{font-size:12px;color:var(--sub);white-space:nowrap}
+    #content .card.search-dim{opacity:.12;filter:grayscale(.6);transition:opacity .15s}
+    #content .card.search-hit{outline:2px solid var(--gold);outline-offset:2px;border-radius:10px}
+  </style>
   <div class="bar">
     <span class="logo">⚡ 千川全域投流 · 知识看板</span>
+    <input id="searchBox" class="searchbox" type="search" placeholder="🔍 搜文字 / 图里的字…" oninput="doSearch(this.value)">
+    <span class="searchcount" id="searchCount"></span>
     <button class="btn" id="editBtn" onclick="toggleEdit()">📝 编辑</button>
     <button class="btn cardbtn" onclick="addCard()">＋ 卡片</button>
     <button class="btn cardbtn" onclick="addSection()">＋ 分类</button>
@@ -720,6 +730,7 @@
       img.removeAttribute('width');
       img.removeAttribute('height');
       img.dataset.imgEnhanced='1';
+      if(window.queueOCR) window.queueOCR(img);
       if(!box.querySelector(':scope > .imgtools')) box.insertAdjacentHTML('afterbegin',imageToolsHtml());
       if(!box.querySelector(':scope > .imghandle')) box.insertAdjacentHTML('beforeend',imageHandlesHtml());
     });
@@ -816,6 +827,7 @@
       const sha=meta.ok?(await meta.json()).sha:undefined;
       const snap=document.getElementById('content').cloneNode(true);
       snap.querySelectorAll('.sectools').forEach(x=>x.remove());
+      snap.querySelectorAll('.search-hit,.search-dim').forEach(x=>x.classList.remove('search-hit','search-dim'));
       const data=snap.innerHTML;
       const body={message:'更新看板内容 '+new Date().toLocaleString('zh-CN'),content:b64(data),branch:GH.branch};
       if(sha)body.sha=sha;
@@ -857,6 +869,69 @@
     }
   });
   document.getElementById('content').addEventListener('input',function(){setTimeout(()=>normalizeRows(document,{keepFresh:true}),0);});
+  /* ===== 🔍 搜索（卡片文字 + 图片OCR文字）+ 图片自动OCR ===== */
+  (function(){
+    const ocrPending=new WeakSet();
+    let ocrQueue=[], ocrBusy=false, ocrEnabled=false, ocrWorker=null, ocrWorkerP=null;
+    function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('加载失败'));document.head.appendChild(s);});}
+    async function getWorker(){
+      if(ocrWorker)return ocrWorker;
+      if(ocrWorkerP)return ocrWorkerP;
+      ocrWorkerP=(async()=>{
+        if(!window.Tesseract){setStatus('首次搜图：下载OCR中文包（约几MB，仅一次）…');await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');}
+        ocrWorker=await Tesseract.createWorker('chi_sim');
+        return ocrWorker;
+      })();
+      return ocrWorkerP;
+    }
+    window.queueOCR=function(img){
+      if(!img||img.dataset.ocr!==undefined)return;   // 已OCR过（含从云端content.html读到的）→ 跳过
+      if(ocrPending.has(img))return;
+      ocrPending.add(img);ocrQueue.push(img);
+      if(ocrEnabled)runQueue();
+    };
+    function enableOCR(){ocrEnabled=true;if(ocrQueue.length)runQueue();}
+    async function runQueue(){
+      if(ocrBusy)return;ocrBusy=true;
+      try{
+        const w=await getWorker();
+        while(ocrQueue.length){
+          const img=ocrQueue.shift();
+          try{const r=await w.recognize(img.src);img.dataset.ocr=(r.data.text||'').replace(/\s+/g,' ').trim();}
+          catch(e){img.dataset.ocr='';}
+          ocrPending.delete(img);
+          refreshIfSearching();
+        }
+        setStatus('图片文字已识别，可搜索（记得点☁️保存永久保留）');
+      }catch(e){setStatus('OCR出错：'+e.message);}
+      ocrBusy=false;
+    }
+    function norm(s){return (s||'').toLowerCase().replace(/\s+/g,'');}   // 去所有空格：中文OCR会在字间插空格，搜"追投"才能匹配"追 投"
+    function hay(card){let t=card.textContent||'';card.querySelectorAll('img[data-ocr]').forEach(i=>{t+=' '+i.dataset.ocr;});return norm(t);}
+    window.doSearch=function(q){
+      q=norm(q);
+      const cnt=document.getElementById('searchCount');
+      if(!q){window.clearSearch();return;}
+      enableOCR();                                   // 一开搜就把没OCR的图补上
+      let n=0;
+      document.querySelectorAll('#content .card').forEach(c=>{
+        const hit=hay(c).indexOf(q)>-1;
+        c.classList.toggle('search-hit',hit);
+        c.classList.toggle('search-dim',!hit);
+        if(hit)n++;
+      });
+      if(cnt)cnt.textContent='找到 '+n+' 张';
+    };
+    window.clearSearch=function(){
+      document.querySelectorAll('#content .search-hit,#content .search-dim').forEach(c=>c.classList.remove('search-hit','search-dim'));
+      const b=document.getElementById('searchBox');if(b)b.value='';
+      const cnt=document.getElementById('searchCount');if(cnt)cnt.textContent='';
+    };
+    function refreshIfSearching(){const b=document.getElementById('searchBox');if(b&&b.value.trim())window.doSearch(b.value);}
+    document.addEventListener('paste',()=>setTimeout(enableOCR,150));   // 贴新图 → 自动OCR
+    const sb=document.getElementById('searchBox');if(sb)sb.addEventListener('keydown',e=>{if(e.key==='Escape')window.clearSearch();});
+  })();
+
   loadFromGitHub();
 </script>
 </body>
