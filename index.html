@@ -280,6 +280,25 @@
   .tl-module.tl-flow{background:color-mix(in srgb,var(--tl-accent) 13%,var(--tl-panel));font-weight:750;color:#d9e6ff}
   .tl-module.tl-alert{background:#241f17;border-color:#4e3b1d;color:#e8bd62}
   .tl-module.tl-panel{border-left:3px solid var(--tl-accent)}
+  /* 小树注释：不做大方框，只用细树枝承接上一模块 */
+  .tl-module.tl-tree{padding:0 6px 0 17px;border:0;border-radius:0;background:transparent!important;color:var(--tl-muted)}
+  .tl-tree-lines{position:relative}
+  .tl-tree-line{position:relative;min-height:25px;padding:3px 0 3px 17px;color:var(--tree-color,var(--tl-muted));
+    font-size:var(--tree-size,12px);line-height:1.55}
+  .tl-tree-line::before{content:"";position:absolute;left:0;top:0;bottom:0;width:1.5px;background:color-mix(in srgb,var(--tl-axis) 58%,transparent)}
+  .tl-tree-line::after{content:"";position:absolute;left:0;top:.9em;width:11px;height:1.5px;background:color-mix(in srgb,var(--tl-axis) 58%,transparent)}
+  .tl-tree-line:last-child::before{bottom:auto;height:.9em}
+  .tl-tree-text{display:block;min-height:1.35em}
+  .tl-tree-linetools{display:none;position:absolute;right:0;top:0;align-items:center;gap:3px;z-index:2}
+  .editing .timeline-card .tl-tree-linetools{display:flex}
+  .editing .timeline-card .tl-tree-line{padding-right:120px}
+  .tl-tree-linetools input[type=color]{width:25px;height:23px;padding:0;border:0;background:transparent;cursor:pointer}
+  .tl-tree-linetools input[type=number]{width:43px;height:23px;padding:1px 3px;border:1px solid #34425d;border-radius:5px;
+    background:#151b28;color:#dce5f5;font-size:11px;text-align:center}
+  .tl-tree-linetools .treeunit{color:var(--tl-muted);font-size:9px;margin-left:-3px}
+  .tl-tree-linetools button{border:1px solid #4b2931;background:#241620;color:#ff9098;border-radius:5px;height:23px;cursor:pointer}
+  .editing .tl-module.tl-tree{margin-top:12px}
+  .editing .timeline-card .tl-tree>.tl-moduletools{left:-17px;right:auto;top:-15px}
   .tl-line{position:relative;padding:3px 22px 3px 16px;line-height:1.55}
   .tl-line::before{content:"";position:absolute;left:1px;top:.82em;width:5px;height:5px;border-radius:50%;background:var(--tl-accent)}
   .tl-line .tl-del-line{display:none;position:absolute;right:0;top:2px}
@@ -780,6 +799,24 @@
       '<label title="只改这一块的颜色"><input type="color" value="#151c28" oninput="setTimelineModuleColor(this)" style="width:25px;height:23px;padding:0;border:0;background:transparent"></label>'+
       '<button class="danger" onclick="deleteTimelineModule(this)">✕</button></div>';
   }
+  function timelineTreeModuleToolsHtml(){
+    return '<div class="tl-moduletools" contenteditable="false">'+
+      '<button class="tl-drag" draggable="false" title="按住拖动小树注释组">⠿</button>'+
+      '<button class="danger" onclick="deleteTimelineModule(this)" title="删除整组小树注释">✕</button></div>';
+  }
+  function timelineTreeLineToolsHtml(){
+    return '<span class="tl-tree-linetools" contenteditable="false">'+
+      '<input type="color" value="#8794aa" title="只改这一条文字颜色" oninput="setTimelineTreeColor(this)">'+
+      '<input type="number" min="10" max="28" step="1" value="12" title="只改这一条字号" oninput="setTimelineTreeSize(this)">'+
+      '<span class="treeunit">px</span>'+
+      '<button onclick="deleteTimelineTreeLine(this)" title="删除这一条注释">✕</button></span>';
+  }
+  function makeTimelineTreeLine(){
+    const line=document.createElement('div');
+    line.className='tl-tree-line';
+    line.innerHTML='<span class="tl-tree-text ph" data-ph="小树状补充注释"></span>'+timelineTreeLineToolsHtml();
+    return line;
+  }
   function makeTimelineModule(type){
     const m=document.createElement('div');
     m.className='tl-module tl-'+type;
@@ -792,6 +829,10 @@
       m.innerHTML=timelineModuleToolsHtml()+'<div class="tl-flowtext ph" data-ph="步骤 A → 步骤 B → 得到结果"></div>';
     }else if(type==='alert'){
       m.innerHTML=timelineModuleToolsHtml()+'<div class="tl-alerttext ph" data-ph="边界、风险或特别提醒"></div>';
+    }else if(type==='tree'){
+      m.innerHTML=timelineTreeModuleToolsHtml()+'<div class="tl-tree-lines"></div>'+
+        '<div class="tl-sectiontools" contenteditable="false"><button onclick="addTimelineTreeLine(this)">＋ 注释</button></div>';
+      m.querySelector('.tl-tree-lines').appendChild(makeTimelineTreeLine());
     }else{
       m.innerHTML=timelineModuleToolsHtml()+'<div class="tl-paneltext ph" data-ph="补充说明或结论"></div>';
     }
@@ -809,6 +850,7 @@
         '<button onclick="addTimelineModule(this,\'flow\')">＋ 流程条</button>'+
         '<button onclick="addTimelineModule(this,\'panel\')">＋ 说明</button>'+
         '<button onclick="addTimelineModule(this,\'alert\')">＋ 提醒</button>'+
+        '<button onclick="addTimelineModule(this,\'tree\')">＋ 小树注释</button>'+
         '<button class="danger" onclick="deleteTimelineStep(this)">删除步骤</button>'+
       '</div>';
     step.querySelector('.tl-modules').appendChild(makeTimelineModule('bullets'));
@@ -851,7 +893,7 @@
       if(!pad)return;
       if(!pad.querySelector(':scope > .tl-editbar')) pad.querySelector(':scope > .cardtools')?.insertAdjacentHTML('afterend',timelineEditbarHtml());
       if(!pad.querySelector(':scope > .tl-stylepanel')) pad.querySelector(':scope > .tl-editbar')?.insertAdjacentHTML('afterend',timelineStyleHtml());
-      card.querySelectorAll('.tl-module').forEach(m=>{if(!m.querySelector(':scope > .tl-moduletools'))m.insertAdjacentHTML('afterbegin',timelineModuleToolsHtml());});
+      ensureTimelineModuleControls(card);
       card.querySelectorAll('.tl-drag').forEach(h=>h.draggable=false);
       renumberTimeline(card);
     });
@@ -861,11 +903,29 @@
       const pad=card.querySelector(':scope > .timeline-pad');
       if(pad&&!pad.querySelector(':scope > .tl-editbar'))pad.querySelector(':scope > .cardtools')?.insertAdjacentHTML('afterend',timelineEditbarHtml());
       if(pad&&!pad.querySelector(':scope > .tl-stylepanel'))pad.querySelector(':scope > .tl-editbar')?.insertAdjacentHTML('afterend',timelineStyleHtml());
-      card.querySelectorAll('.tl-module').forEach(m=>{if(!m.querySelector(':scope > .tl-moduletools'))m.insertAdjacentHTML('afterbegin',timelineModuleToolsHtml());});
+      ensureTimelineModuleControls(card);
       card.querySelectorAll('.tl-drag').forEach(h=>h.draggable=false);
       renumberTimeline(card);
     }
     syncTimelineEditables(scope);
+  }
+  function ensureTimelineModuleControls(card){
+    card.querySelectorAll('.tl-module').forEach(m=>{
+      if(!m.querySelector(':scope > .tl-moduletools')){
+        m.insertAdjacentHTML('afterbegin',m.classList.contains('tl-tree')?timelineTreeModuleToolsHtml():timelineModuleToolsHtml());
+      }
+      if(m.classList.contains('tl-tree')){
+        m.querySelectorAll('.tl-tree-line').forEach(line=>{
+          if(!line.querySelector(':scope > .tl-tree-linetools'))line.insertAdjacentHTML('beforeend',timelineTreeLineToolsHtml());
+          const color=line.style.getPropertyValue('--tree-color').trim();
+          const size=parseInt(line.style.getPropertyValue('--tree-size'),10);
+          const colorInput=line.querySelector(':scope > .tl-tree-linetools input[type="color"]');
+          const sizeInput=line.querySelector(':scope > .tl-tree-linetools input[type="number"]');
+          if(color&&colorInput){colorInput.value=color;colorInput.setAttribute('value',color);}
+          if(size&&sizeInput){sizeInput.value=size;sizeInput.setAttribute('value',String(size));}
+        });
+      }
+    });
   }
   function syncTimelineEditables(root=document){
     if(!root.querySelectorAll)return;
@@ -894,6 +954,14 @@
         return;
       }
     }
+    if(type==='tree'){
+      const existing=Array.from(box.querySelectorAll(':scope > .tl-tree')).pop();
+      if(existing){
+        appendTimelineTreeLine(existing.querySelector('.tl-tree-lines'));
+        setStatus('已增加一条小树注释，可单独调颜色和字号');
+        return;
+      }
+    }
     const m=makeTimelineModule(type);box.appendChild(m);
     syncTimelineEditables(m);
     focusEditable(m.querySelector('[data-ph]'));setStatus('已新增内容块，可拖动调整顺序');
@@ -912,6 +980,35 @@
     const line=btn.closest('.tl-line');if(!line)return;
     const lines=line.parentElement;if(lines.children.length===1&&!confirm('清空这一条内容？'))return;
     if(lines.children.length===1)line.querySelector('span').textContent='';else line.remove();
+  }
+  function addTimelineTreeLine(btn){
+    const lines=btn.closest('.tl-tree')?.querySelector('.tl-tree-lines');
+    appendTimelineTreeLine(lines);
+  }
+  function appendTimelineTreeLine(lines){
+    if(!lines)return;
+    const line=makeTimelineTreeLine();
+    lines.appendChild(line);
+    line.querySelector('.tl-tree-text').contentEditable=editing?'true':'false';
+    focusEditable(line.querySelector('.tl-tree-text'));
+    setStatus('已增加一条小树注释，可单独调颜色和字号');
+  }
+  function deleteTimelineTreeLine(btn){
+    const line=btn.closest('.tl-tree-line'),tree=line?.closest('.tl-tree');
+    if(!line||!tree)return;
+    line.remove();
+    if(!tree.querySelector('.tl-tree-line'))tree.remove();
+    setStatus('已删除这条小树注释，记得保存');
+  }
+  function setTimelineTreeColor(input){
+    const line=input.closest('.tl-tree-line');if(!line)return;
+    line.style.setProperty('--tree-color',input.value);input.setAttribute('value',input.value);
+  }
+  function setTimelineTreeSize(input){
+    const line=input.closest('.tl-tree-line');if(!line)return;
+    const size=Math.max(10,Math.min(28,Number(input.value)||12));
+    input.value=size;input.setAttribute('value',String(size));
+    line.style.setProperty('--tree-size',size+'px');
   }
   function deleteTimelineModule(btn){
     const m=btn.closest('.tl-module');if(!m)return;
