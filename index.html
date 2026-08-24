@@ -39,12 +39,18 @@
   .summary{margin:12px 0 6px;background:linear-gradient(120deg,#141b2b,#16142a);border:1px solid #2c3850;border-radius:12px;padding:11px 14px;font-size:12.5px;color:#c7d0e0}
   .summary b{color:#9fc0ff}
   h3.sec{font-size:21px;color:#eef2fa;margin:24px 2px 10px;font-weight:800;letter-spacing:.5px;border-left:4px solid var(--blue);padding-left:11px}
-  /* 分类（大标题）增删控件 */
+  /* 分类（大标题）增删与整组拖动控件 */
   .sectools{display:none;margin-left:12px;vertical-align:middle}
-  .editing .sectools{display:inline-block}
+  .editing .sectools,.layout .sectools{display:inline-block}
   .delsec{border:1px solid #3b2530;background:#261720;color:#ff8a93;border-radius:7px;
     padding:2px 9px;font-size:11px;line-height:1.3;cursor:pointer;font-weight:600}
   .delsec:hover{border-color:#f0616d;background:#341923}
+  .dragsec{display:none;border:1px solid #34425d;background:#151b28;color:#b9cae6;border-radius:7px;
+    padding:2px 9px;font-size:11px;line-height:1.3;cursor:grab;font-weight:650;touch-action:none;user-select:none}
+  .layout .dragsec{display:inline-block}.layout .delsec{display:none}.dragsec:active{cursor:grabbing}
+  h3.sec.catdragging{opacity:.45}
+  h3.sec.catdropbefore{box-shadow:0 -3px 0 var(--blue)}
+  h3.sec.catdropafter{box-shadow:0 3px 0 var(--blue)}
   .clr{font-size:11px;color:var(--sub);display:inline-flex;align-items:center;gap:3px;cursor:pointer}
   /* 隐藏云端历史里那颗多余的「+卡片」（顶栏已有，去重更清爽） */
   #content .contenttools{display:none!important}
@@ -337,7 +343,7 @@
     <button class="btn" onclick="saveCloud()">☁️ 保存到云端</button>
     <button class="btn" onclick="location.reload()">⟳ 重载</button>
     <span class="status" id="status"></span>
-    <span class="hint">📝<b>编辑</b>：普通内容直接点文字修改；“＋时间轴卡片”可添加步骤、圆点、流程条和提醒，抓住 ⠿ 调顺序。🔧<b>排版</b>：拖卡片<b>顶部色条</b>移动，拖<b>右下角</b>缩放。改完点☁️保存。</span>
+    <span class="hint">📝<b>编辑</b>：直接改文字或增减内容。🔧<b>排版</b>：“拖分类”会带着本类全部卡片移动；卡片顶部可单独拖动，右下角可缩放。改完点☁️保存。</span>
   </div>
 
   <div id="content">
@@ -366,13 +372,14 @@
   function toggleLayout(){
     if(editing) toggleEdit();             // 进排版前先退文字编辑
     layout=!layout;
+    ensureSectionControls();
     document.body.classList.toggle('layout',layout);
     const b=document.getElementById('layoutBtn');
     b.classList.toggle('on',layout);
     b.textContent=layout?'✅ 完成排版':'🔧 排版';
     syncLayoutDraggables();
     clearDropMarks();
-    setStatus(layout?'排版中…抓卡片顶部色条可自由摆放或拖到其他分类，拖右下角缩放':'');
+    setStatus(layout?'排版中…“拖分类”会带着本类全部卡片移动；卡片顶部可单独拖动，右下角可缩放':'');
   }
   // 拖动换位：卡片、任意层级枝条分开处理
   let dragEl=null, dragType='';
@@ -416,7 +423,7 @@
   }
   function sectionName(group){
     const h=group&&group.previousElementSibling;
-    return h&&h.matches('h3.sec')?(h.textContent||'').replace('删分类','').trim():'';
+    return h&&h.matches('h3.sec')?(h.textContent||'').replace(/⠿ 拖分类|删分类/g,'').trim():'';
   }
   document.addEventListener('pointerdown',e=>{
     if(!layout||e.button!==0)return;
@@ -976,15 +983,79 @@
     if(!timelinePointer)return;
     timelinePointer.item.classList.remove('tl-pointer-dragging');clearTimelineDrop();timelinePointer=null;
   },true);
+  /* ===== 分类整组拖动：标题带着其后的全部卡片一起移动 ===== */
+  let categoryPointer=null;
+  function clearCategoryDrop(){
+    document.querySelectorAll('h3.sec.catdropbefore,h3.sec.catdropafter').forEach(h=>h.classList.remove('catdropbefore','catdropafter'));
+  }
+  function categoryHeaderAt(x,y){
+    const el=document.elementFromPoint(x,y);if(!el)return null;
+    const direct=el.closest('h3.sec');if(direct)return direct;
+    const cards=el.closest('.cards');
+    if(cards&&cards.previousElementSibling?.matches('h3.sec'))return cards.previousElementSibling;
+    return null;
+  }
+  function categoryBlockRect(h){
+    let r=h.getBoundingClientRect(),bottom=r.bottom,n=h.nextElementSibling;
+    while(n&&!(n.matches&&n.matches('h3.sec'))){bottom=Math.max(bottom,n.getBoundingClientRect().bottom);n=n.nextElementSibling;}
+    return {top:r.top,bottom};
+  }
+  function categoryNodes(h){
+    const nodes=[];let n=h;
+    while(n&&(!nodes.length||!(n.matches&&n.matches('h3.sec')))){nodes.push(n);n=n.nextElementSibling;}
+    return nodes;
+  }
+  function nextCategoryHeader(h){
+    let n=h.nextElementSibling;
+    while(n&&!(n.matches&&n.matches('h3.sec')))n=n.nextElementSibling;
+    return n;
+  }
+  document.addEventListener('pointerdown',e=>{
+    const handle=e.target.closest('.dragsec');if(!layout||!handle||e.button!==0)return;
+    const source=handle.closest('h3.sec');if(!source)return;
+    categoryPointer={source,handle,x:e.clientX,y:e.clientY,target:null,after:false,active:false,pointerId:e.pointerId};
+    handle.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation();
+  },true);
+  document.addEventListener('pointermove',e=>{
+    if(!categoryPointer)return;
+    if(!categoryPointer.active&&Math.abs(e.clientX-categoryPointer.x)+Math.abs(e.clientY-categoryPointer.y)<6)return;
+    categoryPointer.active=true;categoryPointer.source.classList.add('catdragging');clearCategoryDrop();
+    if(e.clientY>window.innerHeight-60)window.scrollBy(0,20);
+    else if(e.clientY<72)window.scrollBy(0,-20);
+    const target=categoryHeaderAt(e.clientX,e.clientY);categoryPointer.target=null;
+    if(!target||target===categoryPointer.source)return;
+    const r=categoryBlockRect(target),after=e.clientY>(r.top+r.bottom)/2;
+    target.classList.add(after?'catdropafter':'catdropbefore');
+    categoryPointer.target=target;categoryPointer.after=after;e.preventDefault();e.stopPropagation();
+  },true);
+  document.addEventListener('pointerup',e=>{
+    if(!categoryPointer)return;
+    const {source,target,after,active}=categoryPointer;
+    if(active&&target){
+      const parent=source.parentElement,frag=document.createDocumentFragment();
+      categoryNodes(source).forEach(n=>frag.appendChild(n));
+      const anchor=after?nextCategoryHeader(target):target;
+      parent.insertBefore(frag,anchor||null);
+      setStatus('分类及其全部卡片已整体移动，记得保存');
+    }
+    source.classList.remove('catdragging');clearCategoryDrop();categoryPointer=null;
+    if(active){e.preventDefault();e.stopPropagation();}
+  },true);
+  document.addEventListener('pointercancel',()=>{
+    if(!categoryPointer)return;
+    categoryPointer.source.classList.remove('catdragging');clearCategoryDrop();categoryPointer=null;
+  },true);
+
   /* ===== 分类（大标题）增 / 删 ===== */
+  function sectionToolsHtml(){
+    return '<button class="dragsec" contenteditable="false">⠿ 拖分类</button> '+
+      '<button class="delsec" contenteditable="false" onclick="delSection(this)">删分类</button>';
+  }
   function ensureSectionControls(){
     document.querySelectorAll('#content h3.sec').forEach(h=>{
-      if(h.querySelector(':scope > .sectools')) return;
-      const t=document.createElement('span');
-      t.className='sectools';
-      t.contentEditable='false';
-      t.innerHTML='<button class="delsec" contenteditable="false" onclick="delSection(this)">删分类</button>';
-      h.appendChild(t);
+      let t=h.querySelector(':scope > .sectools');
+      if(!t){t=document.createElement('span');t.className='sectools';t.contentEditable='false';h.appendChild(t);}
+      t.innerHTML=sectionToolsHtml();
     });
   }
   function addSection(){
@@ -995,7 +1066,7 @@
     h.appendChild(document.createTextNode('新分类标题'));
     const t=document.createElement('span');
     t.className='sectools'; t.contentEditable='false';
-    t.innerHTML='<button class="delsec" contenteditable="false" onclick="delSection(this)">删分类</button>';
+    t.innerHTML=sectionToolsHtml();
     h.appendChild(t);
     const cards=document.createElement('div');
     cards.className='cards';
@@ -1009,7 +1080,7 @@
   function delSection(btn){
     const h=btn.closest('h3.sec');
     if(!h) return;
-    const title=(h.textContent||'').replace('删分类','').trim()||'这个分类';
+    const title=(h.textContent||'').replace(/⠿ 拖分类|删分类/g,'').trim()||'这个分类';
     if(!confirm('删除分类「'+title+'」及其下所有卡片？')) return;
     let n=h.nextElementSibling;
     while(n && !(n.tagName==='H3'&&n.classList.contains('sec'))){
