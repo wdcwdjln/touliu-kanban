@@ -239,7 +239,8 @@
   .c-gold{--ac:#ecc26a;--g:linear-gradient(90deg,#ecc26a,#f5a04a)}
 
   /* ===== 时间轴卡片：卡片 > 步骤 > 内容块 ===== */
-  .timeline-card{width:100%!important;flex:1 1 100%;max-height:none!important;overflow:visible;
+  .timeline-card{width:420px;max-width:100%;min-width:280px;flex:0 0 auto;max-height:none!important;overflow:visible;
+    container-type:inline-size;
     --tl-bg:#0d121c;--tl-panel:#151c28;--tl-axis:#8295b5;--tl-accent:#5b9bff;
     --tl-text:#edf1f8;--tl-muted:#8794aa;background:var(--tl-bg);color:var(--tl-text)}
   .timeline-card[data-font="serif"]{font-family:Georgia,"Songti SC","STSong",serif}
@@ -288,7 +289,8 @@
     background:#151b28;color:#cbd6ea;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer}
   .tl-editbar button:hover,.tl-sectiontools button:hover,.tl-moduletools button:hover{border-color:var(--tl-accent);color:#fff}
   .tl-sectiontools .danger,.tl-moduletools .danger{color:#ff9098;border-color:#4b2931}
-  .tl-drag{cursor:grab}.tl-drag:active{cursor:grabbing}
+  .tl-drag{cursor:grab;touch-action:none;user-select:none}.tl-drag:active{cursor:grabbing}
+  .tl-pointer-dragging{opacity:.48}
   .tl-stylepanel label{display:flex;flex-direction:column;gap:3px;color:var(--tl-muted);font-size:10px}
   .tl-stylepanel input[type=color]{width:34px;height:26px;border:1px solid #34425d;border-radius:6px;background:#111;padding:1px}
   .tl-stylepanel select{height:27px;border:1px solid #34425d;border-radius:6px;background:#151b28;color:#dce5f5;font-size:11px}
@@ -297,6 +299,12 @@
   .editing .timeline-card [data-ph]:empty::before{content:attr(data-ph);color:#68758c;font-weight:400}
   .timeline-card .tl-drop-before{box-shadow:0 -3px 0 var(--tl-accent)}
   .timeline-card .tl-drop-after{box-shadow:0 3px 0 var(--tl-accent)}
+  .layout .timeline-card{resize:both;overflow:auto;min-width:280px;min-height:180px}
+  @container (max-width:520px){
+    .timeline-card .timeline-pad{padding:20px 16px 24px}.tl-track{padding-left:32px}.tl-track::before{left:10px}
+    .tl-node{left:-26px}.tl-sectionhead{grid-template-columns:auto 1fr}.tl-purpose{grid-column:2;text-align:left}
+    .timeline-card .tl-main-title{font-size:1.65em}
+  }
   @media(max-width:700px){
     .timeline-card .timeline-pad{padding:20px 16px 24px}.tl-track{padding-left:32px}.tl-track::before{left:10px}
     .tl-node{left:-26px}.tl-sectionhead{grid-template-columns:auto 1fr}.tl-purpose{grid-column:2;text-align:left}
@@ -761,7 +769,7 @@
   }
   function timelineModuleToolsHtml(){
     return '<div class="tl-moduletools" contenteditable="false">'+
-      '<button class="tl-drag" draggable="true" title="拖动内容块">⠿</button>'+
+      '<button class="tl-drag" draggable="false" title="按住拖动内容块">⠿</button>'+
       '<label title="只改这一块的颜色"><input type="color" value="#151c28" oninput="setTimelineModuleColor(this)" style="width:25px;height:23px;padding:0;border:0;background:transparent"></label>'+
       '<button class="danger" onclick="deleteTimelineModule(this)">✕</button></div>';
   }
@@ -789,7 +797,7 @@
       '<div class="tl-sectionhead"><span class="tl-num">1</span><span class="tl-steptitle ph" data-ph="步骤标题"></span><span class="tl-purpose ph" data-ph="目的：一句话说明"></span></div>'+
       '<div class="tl-modules"></div>'+
       '<div class="tl-sectiontools" contenteditable="false">'+
-        '<button class="tl-drag" draggable="true" title="拖动步骤">⠿ 拖步骤</button>'+
+        '<button class="tl-drag" draggable="false" title="按住拖动步骤">⠿ 拖步骤</button>'+
         '<button onclick="addTimelineModule(this,\'bullets\')">＋ 圆点</button>'+
         '<button onclick="addTimelineModule(this,\'flow\')">＋ 流程条</button>'+
         '<button onclick="addTimelineModule(this,\'panel\')">＋ 说明</button>'+
@@ -801,7 +809,7 @@
   }
   function makeTimelineCardEl(){
     const card=document.createElement('div');
-    card.className='card mcard timeline-card';
+    card.className='card timeline-card';
     card.dataset.font='system';card.dataset.size='normal';card.dataset.space='normal';
     card.innerHTML='<div class="top"></div><div class="pad timeline-pad">'+
       '<div class="cardtools" contenteditable="false"><button class="delcard" contenteditable="false" onclick="delCard(this)">删除卡片</button></div>'+
@@ -831,21 +839,35 @@
   function ensureTimelineControls(root=document){
     const scope=root.matches&&root.matches('.timeline-card')?root:root;
     scope.querySelectorAll?.('.timeline-card').forEach(card=>{
+      card.classList.remove('mcard');
       const pad=card.querySelector(':scope > .timeline-pad');
       if(!pad)return;
       if(!pad.querySelector(':scope > .tl-editbar')) pad.querySelector(':scope > .cardtools')?.insertAdjacentHTML('afterend',timelineEditbarHtml());
       if(!pad.querySelector(':scope > .tl-stylepanel')) pad.querySelector(':scope > .tl-editbar')?.insertAdjacentHTML('afterend',timelineStyleHtml());
       card.querySelectorAll('.tl-module').forEach(m=>{if(!m.querySelector(':scope > .tl-moduletools'))m.insertAdjacentHTML('afterbegin',timelineModuleToolsHtml());});
+      card.querySelectorAll('.tl-drag').forEach(h=>h.draggable=false);
       renumberTimeline(card);
     });
     if(scope.matches&&scope.matches('.timeline-card')){
       const card=scope;
+      card.classList.remove('mcard');
       const pad=card.querySelector(':scope > .timeline-pad');
       if(pad&&!pad.querySelector(':scope > .tl-editbar'))pad.querySelector(':scope > .cardtools')?.insertAdjacentHTML('afterend',timelineEditbarHtml());
       if(pad&&!pad.querySelector(':scope > .tl-stylepanel'))pad.querySelector(':scope > .tl-editbar')?.insertAdjacentHTML('afterend',timelineStyleHtml());
       card.querySelectorAll('.tl-module').forEach(m=>{if(!m.querySelector(':scope > .tl-moduletools'))m.insertAdjacentHTML('afterbegin',timelineModuleToolsHtml());});
+      card.querySelectorAll('.tl-drag').forEach(h=>h.draggable=false);
       renumberTimeline(card);
     }
+    syncTimelineEditables(scope);
+  }
+  function syncTimelineEditables(root=document){
+    if(!root.querySelectorAll)return;
+    const own=root.matches?.('.timeline-card')?root:root.closest?.('.timeline-card');
+    const cards=own?[own]:Array.from(root.querySelectorAll('.timeline-card'));
+    cards.forEach(card=>{
+      card.contentEditable='false';
+      card.querySelectorAll('[data-ph]').forEach(el=>el.contentEditable=editing?'true':'false');
+    });
   }
   function renumberTimeline(card){
     card.querySelectorAll('.tl-section').forEach((s,i)=>{const n=s.querySelector(':scope > .tl-sectionhead .tl-num');if(n)n.textContent=i+1;});
@@ -857,14 +879,27 @@
   }
   function addTimelineModule(btn,type){
     const step=btn.closest('.tl-section'),box=step?.querySelector(':scope > .tl-modules');if(!box)return;
+    if(type==='bullets'){
+      const existing=Array.from(box.querySelectorAll(':scope > .tl-bullets')).pop();
+      if(existing){
+        appendTimelineLine(existing.querySelector('.tl-lines'));
+        setStatus('已在当前步骤增加一个圆点');
+        return;
+      }
+    }
     const m=makeTimelineModule(type);box.appendChild(m);
+    syncTimelineEditables(m);
     focusEditable(m.querySelector('[data-ph]'));setStatus('已新增内容块，可拖动调整顺序');
   }
   function addTimelineLine(btn){
     const lines=btn.closest('.tl-module')?.querySelector('.tl-lines');if(!lines)return;
+    appendTimelineLine(lines);
+  }
+  function appendTimelineLine(lines){
+    if(!lines)return;
     const line=document.createElement('div');line.className='tl-line';
     line.innerHTML='<span class="ph" data-ph="圆点内容（点这里输入）"></span><button class="tl-del-line" contenteditable="false" onclick="deleteTimelineLine(this)">✕</button>';
-    lines.appendChild(line);focusEditable(line.querySelector('span'));
+    lines.appendChild(line);line.querySelector('span').contentEditable=editing?'true':'false';focusEditable(line.querySelector('span'));
   }
   function deleteTimelineLine(btn){
     const line=btn.closest('.tl-line');if(!line)return;
@@ -905,37 +940,42 @@
     setStatus('已恢复时间轴默认样式');
   }
 
-  /* 编辑状态下：只抓“⠿”拖步骤或内容块，不影响文字编辑 */
-  let timelineDrag=null;
+  /* 编辑状态下：按住“⠿”移动，绕开 contenteditable 对原生拖拽的干扰 */
+  let timelinePointer=null;
   function clearTimelineDrop(){document.querySelectorAll('.tl-drop-before,.tl-drop-after').forEach(x=>x.classList.remove('tl-drop-before','tl-drop-after'));}
-  document.addEventListener('dragstart',e=>{
+  document.addEventListener('pointerdown',e=>{
     const handle=e.target.closest('.tl-drag');if(!editing||!handle)return;
-    timelineDrag=handle.closest('.tl-module')||handle.closest('.tl-section');
-    if(!timelineDrag)return;
-    e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','timeline');e.stopPropagation();
+    const item=handle.closest('.tl-module')||handle.closest('.tl-section');if(!item)return;
+    timelinePointer={item,handle,x:e.clientX,y:e.clientY,target:null,after:false,active:false,pointerId:e.pointerId};
+    handle.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation();
   },true);
-  document.addEventListener('dragover',e=>{
-    if(!timelineDrag)return;
-    const selector=timelineDrag.classList.contains('tl-section')?'.tl-section':'.tl-module';
-    const target=e.target.closest(selector);
-    if(!target||target===timelineDrag||target.closest('.timeline-card')!==timelineDrag.closest('.timeline-card'))return;
-    e.preventDefault();e.stopPropagation();clearTimelineDrop();
+  document.addEventListener('pointermove',e=>{
+    if(!timelinePointer)return;
+    if(!timelinePointer.active&&Math.abs(e.clientX-timelinePointer.x)+Math.abs(e.clientY-timelinePointer.y)<6)return;
+    timelinePointer.active=true;timelinePointer.item.classList.add('tl-pointer-dragging');
+    const selector=timelinePointer.item.classList.contains('tl-section')?'.tl-section':'.tl-module';
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    const target=under?.closest(selector);
+    clearTimelineDrop();timelinePointer.target=null;
+    if(!target||target===timelinePointer.item||target.closest('.timeline-card')!==timelinePointer.item.closest('.timeline-card'))return;
     const after=e.clientY>target.getBoundingClientRect().top+target.getBoundingClientRect().height/2;
     target.classList.add(after?'tl-drop-after':'tl-drop-before');
+    timelinePointer.target=target;timelinePointer.after=after;e.preventDefault();e.stopPropagation();
   },true);
-  document.addEventListener('drop',e=>{
-    if(!timelineDrag)return;
-    const selector=timelineDrag.classList.contains('tl-section')?'.tl-section':'.tl-module';
-    const target=e.target.closest(selector);
-    if(target&&target!==timelineDrag&&target.closest('.timeline-card')===timelineDrag.closest('.timeline-card')){
-      e.preventDefault();e.stopPropagation();
-      const after=e.clientY>target.getBoundingClientRect().top+target.getBoundingClientRect().height/2;
-      target.parentElement.insertBefore(timelineDrag,after?target.nextSibling:target);
+  document.addEventListener('pointerup',e=>{
+    if(!timelinePointer)return;
+    const {item,target,after,active}=timelinePointer;
+    if(active&&target){
+      target.parentElement.insertBefore(item,after?target.nextSibling:target);
       renumberTimeline(target.closest('.timeline-card'));setStatus('顺序已调整，记得保存');
     }
-    clearTimelineDrop();timelineDrag=null;
+    item.classList.remove('tl-pointer-dragging');clearTimelineDrop();timelinePointer=null;
+    if(active){e.preventDefault();e.stopPropagation();}
   },true);
-  document.addEventListener('dragend',()=>{if(timelineDrag){clearTimelineDrop();timelineDrag=null;}},true);
+  document.addEventListener('pointercancel',()=>{
+    if(!timelinePointer)return;
+    timelinePointer.item.classList.remove('tl-pointer-dragging');clearTimelineDrop();timelinePointer=null;
+  },true);
   /* ===== 分类（大标题）增 / 删 ===== */
   function ensureSectionControls(){
     document.querySelectorAll('#content h3.sec').forEach(h=>{
@@ -1125,6 +1165,7 @@
       const sha=meta.ok?(await meta.json()).sha:undefined;
       const snap=document.getElementById('content').cloneNode(true);
       snap.querySelectorAll('.sectools').forEach(x=>x.remove());
+      snap.querySelectorAll('.timeline-card [data-ph]').forEach(x=>x.setAttribute('contenteditable','false'));
       snap.querySelectorAll('.tl-stylepanel').forEach(x=>x.classList.remove('open'));
       snap.querySelectorAll('.tl-drop-before,.tl-drop-after').forEach(x=>x.classList.remove('tl-drop-before','tl-drop-after'));
       snap.querySelectorAll('.search-hit,.search-dim,.search-texthit,.search-imghit').forEach(x=>x.classList.remove('search-hit','search-dim','search-texthit','search-imghit'));
