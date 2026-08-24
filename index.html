@@ -237,6 +237,71 @@
   .c-red{--ac:#f0616d;--g:linear-gradient(90deg,#f0616d,#b48bf2)}
   .c-purple{--ac:#b48bf2;--g:linear-gradient(90deg,#b48bf2,#5b9bff)}
   .c-gold{--ac:#ecc26a;--g:linear-gradient(90deg,#ecc26a,#f5a04a)}
+
+  /* ===== 时间轴卡片：卡片 > 步骤 > 内容块 ===== */
+  .timeline-card{width:100%!important;flex:1 1 100%;max-height:none!important;overflow:visible;
+    --tl-bg:#0d121c;--tl-panel:#151c28;--tl-axis:#8295b5;--tl-accent:#5b9bff;
+    --tl-text:#edf1f8;--tl-muted:#8794aa;background:var(--tl-bg);color:var(--tl-text)}
+  .timeline-card[data-font="serif"]{font-family:Georgia,"Songti SC","STSong",serif}
+  .timeline-card[data-font="mono"]{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+  .timeline-card[data-size="small"]{font-size:12px}.timeline-card[data-size="large"]{font-size:16px}
+  .timeline-card[data-space="tight"] .tl-section{padding-bottom:13px}
+  .timeline-card[data-space="wide"] .tl-section{padding-bottom:31px}
+  .timeline-card .timeline-pad{padding:26px 28px 30px;background:var(--tl-bg)}
+  .tl-kicker{color:var(--tl-muted);font-size:.78em;font-weight:800;letter-spacing:1.5px;margin-bottom:5px}
+  .timeline-card .tl-main-title{font-size:2em;margin:0 0 2px;color:var(--tl-text)}
+  .tl-subtitle{color:var(--tl-muted);font-size:1.02em;font-weight:650;margin-bottom:18px}
+  .tl-rootbox{display:flex;gap:12px;align-items:flex-start;margin:0 0 22px;padding:15px 18px;
+    border:1px solid color-mix(in srgb,var(--tl-axis) 25%,transparent);border-radius:13px;background:var(--tl-panel)}
+  .tl-rootdot{width:15px;height:15px;flex:0 0 15px;margin-top:5px;border-radius:50%;background:#f44755;
+    box-shadow:0 0 0 5px rgba(244,71,85,.08)}
+  .tl-roottitle{font-size:1.12em;font-weight:800;color:var(--tl-text)}
+  .tl-rootnote{font-size:.88em;color:var(--tl-muted);margin-top:2px}
+  .tl-track{position:relative;padding-left:47px}
+  .tl-track::before{content:"";position:absolute;left:18px;top:5px;bottom:12px;width:2px;background:var(--tl-axis);opacity:.58}
+  .tl-section{position:relative;padding:0 0 22px}
+  .tl-node{position:absolute;left:-34px;top:11px;width:10px;height:10px;border-radius:50%;background:var(--tl-axis);
+    box-shadow:0 0 0 4px var(--tl-bg)}
+  .tl-sectionhead{display:grid;grid-template-columns:auto minmax(180px,1fr) minmax(140px,.72fr);align-items:center;gap:10px;margin-bottom:10px}
+  .tl-num{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:30px;padding:0 9px;
+    border-radius:8px;background:color-mix(in srgb,var(--tl-accent) 24%,#111827);color:#dbe7ff;font-weight:850;font-size:1.05em}
+  .tl-steptitle{font-size:1.25em;font-weight:850;color:var(--tl-text);line-height:1.3}
+  .tl-purpose{text-align:right;color:var(--tl-muted);font-size:.82em;font-weight:650;line-height:1.35}
+  .tl-modules{display:flex;flex-direction:column;gap:8px}
+  .tl-module{position:relative;border:1px solid color-mix(in srgb,var(--tl-axis) 20%,transparent);border-radius:11px;
+    background:var(--tl-panel);padding:12px 15px;color:var(--tl-text)}
+  .tl-module.tl-flow{background:color-mix(in srgb,var(--tl-accent) 13%,var(--tl-panel));font-weight:750;color:#d9e6ff}
+  .tl-module.tl-alert{background:#241f17;border-color:#4e3b1d;color:#e8bd62}
+  .tl-module.tl-panel{border-left:3px solid var(--tl-accent)}
+  .tl-line{position:relative;padding:3px 22px 3px 16px;line-height:1.55}
+  .tl-line::before{content:"";position:absolute;left:1px;top:.82em;width:5px;height:5px;border-radius:50%;background:var(--tl-accent)}
+  .tl-line .tl-del-line{display:none;position:absolute;right:0;top:2px}
+  .tl-flowtext,.tl-alerttext,.tl-paneltext{min-height:1.4em;line-height:1.55}
+  .tl-alerttext::before{content:"⚠ ";font-weight:900}
+  .tl-editbar,.tl-sectiontools,.tl-moduletools,.tl-stylepanel{display:none}
+  .editing .timeline-card .tl-editbar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;clear:both}
+  .editing .timeline-card .tl-sectiontools{display:flex;gap:5px;flex-wrap:wrap;margin:7px 0 0}
+  .editing .timeline-card .tl-moduletools{display:flex;position:absolute;right:7px;top:-12px;gap:4px;z-index:3}
+  .editing .timeline-card .tl-stylepanel.open{display:flex;gap:9px;flex-wrap:wrap;align-items:end;margin:0 0 14px;
+    padding:10px;border:1px solid #2d3a52;border-radius:10px;background:#101621}
+  .tl-editbar button,.tl-sectiontools button,.tl-moduletools button,.tl-stylepanel button{border:1px solid #34425d;
+    background:#151b28;color:#cbd6ea;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer}
+  .tl-editbar button:hover,.tl-sectiontools button:hover,.tl-moduletools button:hover{border-color:var(--tl-accent);color:#fff}
+  .tl-sectiontools .danger,.tl-moduletools .danger{color:#ff9098;border-color:#4b2931}
+  .tl-drag{cursor:grab}.tl-drag:active{cursor:grabbing}
+  .tl-stylepanel label{display:flex;flex-direction:column;gap:3px;color:var(--tl-muted);font-size:10px}
+  .tl-stylepanel input[type=color]{width:34px;height:26px;border:1px solid #34425d;border-radius:6px;background:#111;padding:1px}
+  .tl-stylepanel select{height:27px;border:1px solid #34425d;border-radius:6px;background:#151b28;color:#dce5f5;font-size:11px}
+  .editing .timeline-card .tl-line .tl-del-line{display:block;border:0;background:transparent;color:#ff9098;cursor:pointer}
+  .editing .timeline-card [data-ph]:empty{min-width:80px;min-height:1.3em;outline:1px dashed rgba(91,155,255,.25);border-radius:4px}
+  .editing .timeline-card [data-ph]:empty::before{content:attr(data-ph);color:#68758c;font-weight:400}
+  .timeline-card .tl-drop-before{box-shadow:0 -3px 0 var(--tl-accent)}
+  .timeline-card .tl-drop-after{box-shadow:0 3px 0 var(--tl-accent)}
+  @media(max-width:700px){
+    .timeline-card .timeline-pad{padding:20px 16px 24px}.tl-track{padding-left:32px}.tl-track::before{left:10px}
+    .tl-node{left:-26px}.tl-sectionhead{grid-template-columns:auto 1fr}.tl-purpose{grid-column:2;text-align:left}
+    .timeline-card .tl-main-title{font-size:1.65em}
+  }
 </style>
 </head>
 <body>
@@ -258,12 +323,13 @@
     <span class="searchcount" id="searchCount"></span>
     <button class="btn" id="editBtn" onclick="toggleEdit()">📝 编辑</button>
     <button class="btn cardbtn" onclick="addCard()">＋ 卡片</button>
+    <button class="btn cardbtn" onclick="addTimelineCard()">＋ 时间轴卡片</button>
     <button class="btn cardbtn" onclick="addSection()">＋ 分类</button>
     <button class="btn" id="layoutBtn" onclick="toggleLayout()">🔧 排版</button>
     <button class="btn" onclick="saveCloud()">☁️ 保存到云端</button>
     <button class="btn" onclick="location.reload()">⟳ 重载</button>
     <span class="status" id="status"></span>
-    <span class="hint">📝<b>编辑</b>：每行分两条——<b>上面一条大字、下面一条小字</b>，点哪条改哪条，打字或粘贴都自动套好字号；＋卡片 ＋分类 增减内容。🔧<b>排版</b>：拖卡片<b>顶部色条</b>自由摆放、拖<b>右下角</b>缩放。改完点☁️保存。</span>
+    <span class="hint">📝<b>编辑</b>：普通内容直接点文字修改；“＋时间轴卡片”可添加步骤、圆点、流程条和提醒，抓住 ⠿ 调顺序。🔧<b>排版</b>：拖卡片<b>顶部色条</b>移动，拖<b>右下角</b>缩放。改完点☁️保存。</span>
   </div>
 
   <div id="content">
@@ -280,6 +346,7 @@
     editing=!editing;
     ensureCardControls();
     ensureSectionControls();
+    ensureTimelineControls();
     normalizeRows();
     document.getElementById('content').contentEditable=editing;
     document.body.classList.toggle('editing',editing);
@@ -670,6 +737,205 @@
     card.scrollIntoView({behavior:'smooth',block:'center'});
     setStatus('已新增卡片，编辑后记得保存');
   }
+
+  /* ===== 时间轴卡片 ===== */
+  function timelineEditbarHtml(){
+    return '<div class="tl-editbar" contenteditable="false">'+
+      '<button onclick="addTimelineStep(this)">＋ 步骤</button>'+
+      '<button onclick="toggleTimelineStyle(this)">🎨 样式</button>'+
+      '</div>';
+  }
+  function timelineStyleHtml(){
+    return '<div class="tl-stylepanel" contenteditable="false">'+
+      '<label>卡片背景<input type="color" value="#0d121c" data-var="--tl-bg" oninput="setTimelineColor(this)"></label>'+
+      '<label>模块背景<input type="color" value="#151c28" data-var="--tl-panel" oninput="setTimelineColor(this)"></label>'+
+      '<label>轴线<input type="color" value="#8295b5" data-var="--tl-axis" oninput="setTimelineColor(this)"></label>'+
+      '<label>强调色<input type="color" value="#5b9bff" data-var="--tl-accent" oninput="setTimelineColor(this)"></label>'+
+      '<label>大字<input type="color" value="#edf1f8" data-var="--tl-text" oninput="setTimelineColor(this)"></label>'+
+      '<label>小字<input type="color" value="#8794aa" data-var="--tl-muted" oninput="setTimelineColor(this)"></label>'+
+      '<label>字体<select data-key="font" onchange="setTimelineChoice(this)"><option value="system">系统</option><option value="serif">宋体</option><option value="mono">等宽</option></select></label>'+
+      '<label>字号<select data-key="size" onchange="setTimelineChoice(this)"><option value="small">小</option><option value="normal" selected>中</option><option value="large">大</option></select></label>'+
+      '<label>间距<select data-key="space" onchange="setTimelineChoice(this)"><option value="tight">紧凑</option><option value="normal" selected>标准</option><option value="wide">宽松</option></select></label>'+
+      '<button onclick="resetTimelineStyle(this)">恢复默认</button>'+
+      '</div>';
+  }
+  function timelineModuleToolsHtml(){
+    return '<div class="tl-moduletools" contenteditable="false">'+
+      '<button class="tl-drag" draggable="true" title="拖动内容块">⠿</button>'+
+      '<label title="只改这一块的颜色"><input type="color" value="#151c28" oninput="setTimelineModuleColor(this)" style="width:25px;height:23px;padding:0;border:0;background:transparent"></label>'+
+      '<button class="danger" onclick="deleteTimelineModule(this)">✕</button></div>';
+  }
+  function makeTimelineModule(type){
+    const m=document.createElement('div');
+    m.className='tl-module tl-'+type;
+    m.dataset.type=type;
+    if(type==='bullets'){
+      m.innerHTML=timelineModuleToolsHtml()+'<div class="tl-lines">'+
+        '<div class="tl-line"><span class="ph" data-ph="圆点内容（点这里输入）"></span><button class="tl-del-line" contenteditable="false" onclick="deleteTimelineLine(this)">✕</button></div>'+
+        '</div><div class="tl-sectiontools" contenteditable="false"><button onclick="addTimelineLine(this)">＋ 圆点</button></div>';
+    }else if(type==='flow'){
+      m.innerHTML=timelineModuleToolsHtml()+'<div class="tl-flowtext ph" data-ph="步骤 A → 步骤 B → 得到结果"></div>';
+    }else if(type==='alert'){
+      m.innerHTML=timelineModuleToolsHtml()+'<div class="tl-alerttext ph" data-ph="边界、风险或特别提醒"></div>';
+    }else{
+      m.innerHTML=timelineModuleToolsHtml()+'<div class="tl-paneltext ph" data-ph="补充说明或结论"></div>';
+    }
+    return m;
+  }
+  function makeTimelineStep(){
+    const step=document.createElement('section');
+    step.className='tl-section';
+    step.innerHTML='<span class="tl-node"></span>'+
+      '<div class="tl-sectionhead"><span class="tl-num">1</span><span class="tl-steptitle ph" data-ph="步骤标题"></span><span class="tl-purpose ph" data-ph="目的：一句话说明"></span></div>'+
+      '<div class="tl-modules"></div>'+
+      '<div class="tl-sectiontools" contenteditable="false">'+
+        '<button class="tl-drag" draggable="true" title="拖动步骤">⠿ 拖步骤</button>'+
+        '<button onclick="addTimelineModule(this,\'bullets\')">＋ 圆点</button>'+
+        '<button onclick="addTimelineModule(this,\'flow\')">＋ 流程条</button>'+
+        '<button onclick="addTimelineModule(this,\'panel\')">＋ 说明</button>'+
+        '<button onclick="addTimelineModule(this,\'alert\')">＋ 提醒</button>'+
+        '<button class="danger" onclick="deleteTimelineStep(this)">删除步骤</button>'+
+      '</div>';
+    step.querySelector('.tl-modules').appendChild(makeTimelineModule('bullets'));
+    return step;
+  }
+  function makeTimelineCardEl(){
+    const card=document.createElement('div');
+    card.className='card mcard timeline-card';
+    card.dataset.font='system';card.dataset.size='normal';card.dataset.space='normal';
+    card.innerHTML='<div class="top"></div><div class="pad timeline-pad">'+
+      '<div class="cardtools" contenteditable="false"><button class="delcard" contenteditable="false" onclick="delCard(this)">删除卡片</button></div>'+
+      timelineEditbarHtml()+timelineStyleHtml()+
+      '<div class="tl-kicker ph" data-ph="课程标签">投流课程 · 树状图 2.0</div>'+
+      '<h3 class="ti tl-main-title ph" data-ph="课程标题">新时间轴卡片</h3>'+
+      '<div class="tl-subtitle ph" data-ph="一句话副标题"></div>'+
+      '<div class="tl-rootbox"><span class="tl-rootdot"></span><div><div class="tl-roottitle ph" data-ph="核心结论"></div><div class="tl-rootnote ph" data-ph="一句话解释这张图要解决什么"></div></div></div>'+
+      '<div class="tl-track"></div></div>';
+    card.querySelector('.tl-track').appendChild(makeTimelineStep());
+    return card;
+  }
+  function addTimelineCard(){
+    const group=activeCardsGroup();
+    if(!group)return;
+    const card=makeTimelineCardEl();
+    group.appendChild(card);
+    if(group.classList.contains('freecanvas')){
+      card.style.position='absolute';card.style.left='16px';card.style.top=((group.offsetHeight||40)-24)+'px';
+      card.style.width=Math.max(320,Math.min(1000,group.clientWidth-32))+'px';fitGroupHeight(group);
+    }
+    ensureTimelineControls(card);syncLayoutDraggables();
+    card.scrollIntoView({behavior:'smooth',block:'center'});
+    focusEditable(card.querySelector('.tl-main-title'));
+    setStatus('已新增时间轴卡片：先改标题，再逐步添加内容');
+  }
+  function ensureTimelineControls(root=document){
+    const scope=root.matches&&root.matches('.timeline-card')?root:root;
+    scope.querySelectorAll?.('.timeline-card').forEach(card=>{
+      const pad=card.querySelector(':scope > .timeline-pad');
+      if(!pad)return;
+      if(!pad.querySelector(':scope > .tl-editbar')) pad.querySelector(':scope > .cardtools')?.insertAdjacentHTML('afterend',timelineEditbarHtml());
+      if(!pad.querySelector(':scope > .tl-stylepanel')) pad.querySelector(':scope > .tl-editbar')?.insertAdjacentHTML('afterend',timelineStyleHtml());
+      card.querySelectorAll('.tl-module').forEach(m=>{if(!m.querySelector(':scope > .tl-moduletools'))m.insertAdjacentHTML('afterbegin',timelineModuleToolsHtml());});
+      renumberTimeline(card);
+    });
+    if(scope.matches&&scope.matches('.timeline-card')){
+      const card=scope;
+      const pad=card.querySelector(':scope > .timeline-pad');
+      if(pad&&!pad.querySelector(':scope > .tl-editbar'))pad.querySelector(':scope > .cardtools')?.insertAdjacentHTML('afterend',timelineEditbarHtml());
+      if(pad&&!pad.querySelector(':scope > .tl-stylepanel'))pad.querySelector(':scope > .tl-editbar')?.insertAdjacentHTML('afterend',timelineStyleHtml());
+      card.querySelectorAll('.tl-module').forEach(m=>{if(!m.querySelector(':scope > .tl-moduletools'))m.insertAdjacentHTML('afterbegin',timelineModuleToolsHtml());});
+      renumberTimeline(card);
+    }
+  }
+  function renumberTimeline(card){
+    card.querySelectorAll('.tl-section').forEach((s,i)=>{const n=s.querySelector(':scope > .tl-sectionhead .tl-num');if(n)n.textContent=i+1;});
+  }
+  function addTimelineStep(btn){
+    const card=btn.closest('.timeline-card'),track=card?.querySelector('.tl-track');if(!track)return;
+    const step=makeTimelineStep();track.appendChild(step);renumberTimeline(card);focusEditable(step.querySelector('.tl-steptitle'));
+    setStatus('已新增步骤，可拖动调整顺序');
+  }
+  function addTimelineModule(btn,type){
+    const step=btn.closest('.tl-section'),box=step?.querySelector(':scope > .tl-modules');if(!box)return;
+    const m=makeTimelineModule(type);box.appendChild(m);
+    focusEditable(m.querySelector('[data-ph]'));setStatus('已新增内容块，可拖动调整顺序');
+  }
+  function addTimelineLine(btn){
+    const lines=btn.closest('.tl-module')?.querySelector('.tl-lines');if(!lines)return;
+    const line=document.createElement('div');line.className='tl-line';
+    line.innerHTML='<span class="ph" data-ph="圆点内容（点这里输入）"></span><button class="tl-del-line" contenteditable="false" onclick="deleteTimelineLine(this)">✕</button>';
+    lines.appendChild(line);focusEditable(line.querySelector('span'));
+  }
+  function deleteTimelineLine(btn){
+    const line=btn.closest('.tl-line');if(!line)return;
+    const lines=line.parentElement;if(lines.children.length===1&&!confirm('清空这一条内容？'))return;
+    if(lines.children.length===1)line.querySelector('span').textContent='';else line.remove();
+  }
+  function deleteTimelineModule(btn){
+    const m=btn.closest('.tl-module');if(!m)return;
+    if(m.textContent.replace(/⠿|✕|圆点/g,'').trim()&&!confirm('删除这个内容块？'))return;
+    m.remove();setStatus('已删除内容块，记得保存');
+  }
+  function deleteTimelineStep(btn){
+    const step=btn.closest('.tl-section'),card=step?.closest('.timeline-card');if(!step||!card)return;
+    if(step.textContent.replace(/拖步骤|删除步骤|圆点|流程条|说明|提醒|⠿|✕/g,'').trim()&&!confirm('删除整个步骤及其内容？'))return;
+    step.remove();renumberTimeline(card);setStatus('已删除步骤，记得保存');
+  }
+  function toggleTimelineStyle(btn){btn.closest('.timeline-card')?.querySelector('.tl-stylepanel')?.classList.toggle('open');}
+  function setTimelineColor(input){
+    const card=input.closest('.timeline-card');if(!card)return;
+    card.style.setProperty(input.dataset.var,input.value);input.setAttribute('value',input.value);
+  }
+  function setTimelineModuleColor(input){
+    const m=input.closest('.tl-module');if(!m)return;
+    m.style.background=input.value;input.setAttribute('value',input.value);
+  }
+  function setTimelineChoice(sel){
+    const card=sel.closest('.timeline-card');if(!card)return;
+    card.dataset[sel.dataset.key]=sel.value;
+    Array.from(sel.options).forEach(o=>o.toggleAttribute('selected',o.value===sel.value));
+  }
+  function resetTimelineStyle(btn){
+    const card=btn.closest('.timeline-card');if(!card)return;
+    ['--tl-bg','--tl-panel','--tl-axis','--tl-accent','--tl-text','--tl-muted'].forEach(v=>card.style.removeProperty(v));
+    card.dataset.font='system';card.dataset.size='normal';card.dataset.space='normal';
+    const defaults={'--tl-bg':'#0d121c','--tl-panel':'#151c28','--tl-axis':'#8295b5','--tl-accent':'#5b9bff','--tl-text':'#edf1f8','--tl-muted':'#8794aa'};
+    card.querySelectorAll('.tl-stylepanel input[data-var]').forEach(i=>{i.value=defaults[i.dataset.var];i.setAttribute('value',i.value);});
+    card.querySelectorAll('.tl-stylepanel select').forEach(s=>{s.value=s.dataset.key==='font'?'system':'normal';Array.from(s.options).forEach(o=>o.toggleAttribute('selected',o.value===s.value));});
+    setStatus('已恢复时间轴默认样式');
+  }
+
+  /* 编辑状态下：只抓“⠿”拖步骤或内容块，不影响文字编辑 */
+  let timelineDrag=null;
+  function clearTimelineDrop(){document.querySelectorAll('.tl-drop-before,.tl-drop-after').forEach(x=>x.classList.remove('tl-drop-before','tl-drop-after'));}
+  document.addEventListener('dragstart',e=>{
+    const handle=e.target.closest('.tl-drag');if(!editing||!handle)return;
+    timelineDrag=handle.closest('.tl-module')||handle.closest('.tl-section');
+    if(!timelineDrag)return;
+    e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','timeline');e.stopPropagation();
+  },true);
+  document.addEventListener('dragover',e=>{
+    if(!timelineDrag)return;
+    const selector=timelineDrag.classList.contains('tl-section')?'.tl-section':'.tl-module';
+    const target=e.target.closest(selector);
+    if(!target||target===timelineDrag||target.closest('.timeline-card')!==timelineDrag.closest('.timeline-card'))return;
+    e.preventDefault();e.stopPropagation();clearTimelineDrop();
+    const after=e.clientY>target.getBoundingClientRect().top+target.getBoundingClientRect().height/2;
+    target.classList.add(after?'tl-drop-after':'tl-drop-before');
+  },true);
+  document.addEventListener('drop',e=>{
+    if(!timelineDrag)return;
+    const selector=timelineDrag.classList.contains('tl-section')?'.tl-section':'.tl-module';
+    const target=e.target.closest(selector);
+    if(target&&target!==timelineDrag&&target.closest('.timeline-card')===timelineDrag.closest('.timeline-card')){
+      e.preventDefault();e.stopPropagation();
+      const after=e.clientY>target.getBoundingClientRect().top+target.getBoundingClientRect().height/2;
+      target.parentElement.insertBefore(timelineDrag,after?target.nextSibling:target);
+      renumberTimeline(target.closest('.timeline-card'));setStatus('顺序已调整，记得保存');
+    }
+    clearTimelineDrop();timelineDrag=null;
+  },true);
+  document.addEventListener('dragend',()=>{if(timelineDrag){clearTimelineDrop();timelineDrag=null;}},true);
   /* ===== 分类（大标题）增 / 删 ===== */
   function ensureSectionControls(){
     document.querySelectorAll('#content h3.sec').forEach(h=>{
@@ -843,7 +1109,7 @@
       if(!r.ok)throw new Error('GitHub '+r.status);
       const text=await r.text();
       document.getElementById('content').innerHTML=text;
-      normalizeRows();ensureCardControls();ensureSectionControls();enhanceImages(document);syncLayoutDraggables();syncColorInputs();
+      normalizeRows();ensureCardControls();ensureSectionControls();ensureTimelineControls();enhanceImages(document);syncLayoutDraggables();syncColorInputs();
       setStatus('已载入 '+time());
     }catch(e){ setStatus('载入失败：'+e.message+'（点重载重试）'); }
   }
@@ -859,6 +1125,8 @@
       const sha=meta.ok?(await meta.json()).sha:undefined;
       const snap=document.getElementById('content').cloneNode(true);
       snap.querySelectorAll('.sectools').forEach(x=>x.remove());
+      snap.querySelectorAll('.tl-stylepanel').forEach(x=>x.classList.remove('open'));
+      snap.querySelectorAll('.tl-drop-before,.tl-drop-after').forEach(x=>x.classList.remove('tl-drop-before','tl-drop-after'));
       snap.querySelectorAll('.search-hit,.search-dim,.search-texthit,.search-imghit').forEach(x=>x.classList.remove('search-hit','search-dim','search-texthit','search-imghit'));
       const data=snap.innerHTML;
       const body={message:'更新看板内容 '+new Date().toLocaleString('zh-CN'),content:b64(data),branch:GH.branch};
