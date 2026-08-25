@@ -941,7 +941,7 @@
   }
   function addTimelineStep(btn){
     const card=btn.closest('.timeline-card'),track=card?.querySelector('.tl-track');if(!track)return;
-    const step=makeTimelineStep();track.appendChild(step);renumberTimeline(card);focusEditable(step.querySelector('.tl-steptitle'));
+    const step=makeTimelineStep();track.appendChild(step);renumberTimeline(card);syncTimelineEditables(step);focusEditable(step.querySelector('.tl-steptitle'));
     setStatus('已新增步骤，可拖动调整顺序');
   }
   function addTimelineModule(btn,type){
@@ -955,7 +955,7 @@
       }
     }
     if(type==='tree'){
-      const existing=Array.from(box.querySelectorAll(':scope > .tl-tree')).pop();
+      const existing=box.lastElementChild?.classList.contains('tl-tree')?box.lastElementChild:null;
       if(existing){
         appendTimelineTreeLine(existing.querySelector('.tl-tree-lines'));
         setStatus('已增加一条小树注释，可单独调颜色和字号');
@@ -1012,8 +1012,10 @@
   }
   function deleteTimelineModule(btn){
     const m=btn.closest('.tl-module');if(!m)return;
-    if(m.textContent.replace(/⠿|✕|圆点/g,'').trim()&&!confirm('删除这个内容块？'))return;
-    m.remove();setStatus('已删除内容块，记得保存');
+    const tree=!m.classList.contains('tl-tree')&&m.nextElementSibling?.classList.contains('tl-tree')?m.nextElementSibling:null;
+    const text=(m.textContent+(tree?.textContent||'')).replace(/⠿|✕|圆点|注释/g,'').trim();
+    if(text&&!confirm(tree?'删除这个内容块及其小树注释？':'删除这个内容块？'))return;
+    if(tree)tree.remove();m.remove();setStatus('已删除内容块，记得保存');
   }
   function deleteTimelineStep(btn){
     const step=btn.closest('.tl-section'),card=step?.closest('.timeline-card');if(!step||!card)return;
@@ -1047,38 +1049,61 @@
   /* 编辑状态下：按住“⠿”移动，绕开 contenteditable 对原生拖拽的干扰 */
   let timelinePointer=null;
   function clearTimelineDrop(){document.querySelectorAll('.tl-drop-before,.tl-drop-after').forEach(x=>x.classList.remove('tl-drop-before','tl-drop-after'));}
+  function timelineModuleLead(m){
+    if(!m?.classList.contains('tl-tree'))return m;
+    const prev=m.previousElementSibling;
+    return prev?.classList.contains('tl-module')&&!prev.classList.contains('tl-tree')?prev:m;
+  }
+  function timelineModuleGroup(m){
+    const lead=timelineModuleLead(m);if(!lead)return [];
+    const nodes=[lead];let next=lead.nextElementSibling;
+    while(next?.classList.contains('tl-tree')){nodes.push(next);next=next.nextElementSibling;}
+    return nodes;
+  }
+  function timelineGroupRect(nodes){
+    const first=nodes[0].getBoundingClientRect(),last=nodes[nodes.length-1].getBoundingClientRect();
+    return {top:first.top,bottom:last.bottom};
+  }
   document.addEventListener('pointerdown',e=>{
     const handle=e.target.closest('.tl-drag');if(!editing||!handle)return;
-    const item=handle.closest('.tl-module')||handle.closest('.tl-section');if(!item)return;
-    timelinePointer={item,handle,x:e.clientX,y:e.clientY,target:null,after:false,active:false,pointerId:e.pointerId};
+    const raw=handle.closest('.tl-module')||handle.closest('.tl-section');if(!raw)return;
+    const item=raw.classList.contains('tl-module')?timelineModuleLead(raw):raw;
+    const nodes=item.classList.contains('tl-module')?timelineModuleGroup(item):[item];
+    timelinePointer={item,nodes,handle,x:e.clientX,y:e.clientY,target:null,targetEnd:null,after:false,active:false,pointerId:e.pointerId};
     handle.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation();
   },true);
   document.addEventListener('pointermove',e=>{
     if(!timelinePointer)return;
     if(!timelinePointer.active&&Math.abs(e.clientX-timelinePointer.x)+Math.abs(e.clientY-timelinePointer.y)<6)return;
-    timelinePointer.active=true;timelinePointer.item.classList.add('tl-pointer-dragging');
+    timelinePointer.active=true;timelinePointer.nodes.forEach(n=>n.classList.add('tl-pointer-dragging'));
     const selector=timelinePointer.item.classList.contains('tl-section')?'.tl-section':'.tl-module';
     const under=document.elementFromPoint(e.clientX,e.clientY);
-    const target=under?.closest(selector);
-    clearTimelineDrop();timelinePointer.target=null;
-    if(!target||target===timelinePointer.item||target.closest('.timeline-card')!==timelinePointer.item.closest('.timeline-card'))return;
-    const after=e.clientY>target.getBoundingClientRect().top+target.getBoundingClientRect().height/2;
-    target.classList.add(after?'tl-drop-after':'tl-drop-before');
-    timelinePointer.target=target;timelinePointer.after=after;e.preventDefault();e.stopPropagation();
+    const rawTarget=under?.closest(selector);
+    clearTimelineDrop();timelinePointer.target=null;timelinePointer.targetEnd=null;
+    if(!rawTarget||timelinePointer.nodes.includes(rawTarget)||rawTarget.closest('.timeline-card')!==timelinePointer.item.closest('.timeline-card'))return;
+    const target=timelinePointer.item.classList.contains('tl-section')?rawTarget:timelineModuleLead(rawTarget);
+    const targetNodes=timelinePointer.item.classList.contains('tl-section')?[target]:timelineModuleGroup(target);
+    if(targetNodes.some(n=>timelinePointer.nodes.includes(n)))return;
+    const r=timelineGroupRect(targetNodes),after=e.clientY>(r.top+r.bottom)/2;
+    (after?targetNodes[targetNodes.length-1]:target).classList.add(after?'tl-drop-after':'tl-drop-before');
+    timelinePointer.target=target;timelinePointer.targetEnd=targetNodes[targetNodes.length-1];timelinePointer.after=after;e.preventDefault();e.stopPropagation();
   },true);
   document.addEventListener('pointerup',e=>{
     if(!timelinePointer)return;
-    const {item,target,after,active}=timelinePointer;
+    const {item,nodes,target,targetEnd,after,active}=timelinePointer;
     if(active&&target){
-      target.parentElement.insertBefore(item,after?target.nextSibling:target);
+      if(item.classList.contains('tl-module')){
+        const frag=document.createDocumentFragment();nodes.forEach(n=>frag.appendChild(n));
+        target.parentElement.insertBefore(frag,after?targetEnd.nextSibling:target);
+      }else target.parentElement.insertBefore(item,after?target.nextSibling:target);
       renumberTimeline(target.closest('.timeline-card'));setStatus('顺序已调整，记得保存');
     }
-    item.classList.remove('tl-pointer-dragging');clearTimelineDrop();timelinePointer=null;
+    nodes.forEach(n=>n.classList.remove('tl-pointer-dragging'));clearTimelineDrop();timelinePointer=null;
     if(active){e.preventDefault();e.stopPropagation();}
   },true);
   document.addEventListener('pointercancel',()=>{
     if(!timelinePointer)return;
-    timelinePointer.item.classList.remove('tl-pointer-dragging');clearTimelineDrop();timelinePointer=null;
+    timelinePointer.nodes.forEach(n=>n.classList.remove('tl-pointer-dragging'));clearTimelineDrop();timelinePointer=null;
   },true);
   /* ===== 分类整组拖动：标题带着其后的全部卡片一起移动 ===== */
   let categoryPointer=null;
@@ -1305,9 +1330,11 @@
   //   保存 → 只把 content.html 提交到 GitHub（不再连程序一起传，省一半流量）
   const GH={owner:'wdcwdjln',repo:'touliu-kanban',path:'content.html',branch:'main'};
   const TK_KEY='gh_token';
+  let savingCloud=false;
   function ghHeaders(t){return {Authorization:'Bearer '+t,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};}
   function b64(str){return btoa(unescape(encodeURIComponent(str)));}
   function unb64(b){return decodeURIComponent(escape(atob((b||'').replace(/\s/g,''))));}
+  function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
   async function loadFromGitHub(){
     try{localStorage.removeItem('touliu_outline_v5');}catch(e){}
     setStatus('载入中…');
@@ -1322,28 +1349,40 @@
     }catch(e){ setStatus('载入失败：'+e.message+'（点重载重试）'); }
   }
   async function saveCloud(){
+    if(savingCloud){setStatus('保存正在进行，请稍候…');return;}
     normalizeRows(document,{dropEmpty:true});
     let t=localStorage.getItem(TK_KEY);
     if(!t){ t=(prompt('首次保存：粘贴你的 GitHub 令牌（只存在你这台浏览器，不会写进页面）')||'').trim(); if(!t)return; localStorage.setItem(TK_KEY,t); }
-    setStatus('保存中…');
+    savingCloud=true;
+    const api='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.path;
+    const snap=document.getElementById('content').cloneNode(true);
+    snap.querySelectorAll('.sectools').forEach(x=>x.remove());
+    snap.querySelectorAll('.timeline-card [data-ph]').forEach(x=>x.setAttribute('contenteditable','false'));
+    snap.querySelectorAll('.tl-stylepanel').forEach(x=>x.classList.remove('open'));
+    snap.querySelectorAll('.tl-drop-before,.tl-drop-after').forEach(x=>x.classList.remove('tl-drop-before','tl-drop-after'));
+    snap.querySelectorAll('.search-hit,.search-dim,.search-texthit,.search-imghit').forEach(x=>x.classList.remove('search-hit','search-dim','search-texthit','search-imghit'));
+    const data=snap.innerHTML,encoded=b64(data);
+    let lastError='网络请求失败';
     try{
-      const api='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.path;
-      const meta=await fetch(api+'?ref='+GH.branch,{headers:ghHeaders(t)});
-      if(meta.status===401||meta.status===403){localStorage.removeItem(TK_KEY);setStatus('令牌无效/越权，已清除，请重新点保存输入');return;}
-      const sha=meta.ok?(await meta.json()).sha:undefined;
-      const snap=document.getElementById('content').cloneNode(true);
-      snap.querySelectorAll('.sectools').forEach(x=>x.remove());
-      snap.querySelectorAll('.timeline-card [data-ph]').forEach(x=>x.setAttribute('contenteditable','false'));
-      snap.querySelectorAll('.tl-stylepanel').forEach(x=>x.classList.remove('open'));
-      snap.querySelectorAll('.tl-drop-before,.tl-drop-after').forEach(x=>x.classList.remove('tl-drop-before','tl-drop-after'));
-      snap.querySelectorAll('.search-hit,.search-dim,.search-texthit,.search-imghit').forEach(x=>x.classList.remove('search-hit','search-dim','search-texthit','search-imghit'));
-      const data=snap.innerHTML;
-      const body={message:'更新看板内容 '+new Date().toLocaleString('zh-CN'),content:b64(data),branch:GH.branch};
-      if(sha)body.sha=sha;
-      const put=await fetch(api,{method:'PUT',headers:ghHeaders(t),body:JSON.stringify(body)});
-      if(put.ok){setStatus('✅ 已存 GitHub '+time());}
-      else{const er=await put.json().catch(function(){return {};});setStatus('保存失败：'+(er.message||put.status));}
-    }catch(e){setStatus('保存出错：'+e.message);}
+      for(let attempt=1;attempt<=3;attempt++){
+        setStatus('保存中… '+attempt+'/3');
+        try{
+          const meta=await fetch(api+'?ref='+GH.branch+'&_='+Date.now(),{headers:ghHeaders(t),cache:'no-store'});
+          if(meta.status===401||meta.status===403){localStorage.removeItem(TK_KEY);setStatus('令牌无效/越权，已清除，请重新点保存输入');return;}
+          if(!meta.ok)throw new Error('读取云端版本失败：'+meta.status);
+          const sha=(await meta.json()).sha;
+          const body={message:'更新看板内容 '+new Date().toLocaleString('zh-CN'),content:encoded,branch:GH.branch,sha};
+          const put=await fetch(api,{method:'PUT',headers:ghHeaders(t),body:JSON.stringify(body)});
+          if(put.ok){setStatus('✅ 已存 GitHub '+time());return;}
+          const er=await put.json().catch(function(){return {};});
+          lastError=er.message||String(put.status);
+          if(put.status===401||put.status===403){localStorage.removeItem(TK_KEY);setStatus('令牌无效/越权，已清除，请重新点保存输入');return;}
+          if(put.status!==409&&put.status<500)break;
+        }catch(e){lastError=e.message||String(e);}
+        if(attempt<3){setStatus('网络波动，正在自动重试… '+attempt+'/3');await wait(1200*attempt);}
+      }
+      setStatus('保存失败：'+lastError+'（无需连续点击，请稍后再试）');
+    }finally{savingCloud=false;}
   }
   function time(){const d=new Date();return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');}
   // 粘贴只插纯文本：落进哪个框就自动套那个框的字号/颜色（大字框=大字，小字框=小字）；图片粘贴照旧
