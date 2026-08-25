@@ -386,7 +386,7 @@
     const b=document.getElementById('editBtn');
     b.classList.toggle('on',editing);
     b.textContent=editing?'✅ 完成':'📝 编辑';
-    setStatus(editing?'编辑中…点文字直接改；粘贴自动套用大字/小字':'');
+    setStatus(editing?'编辑中…点文字直接改；Command+Z 撤销上一步':'');
   }
   function toggleLayout(){
     if(editing) toggleEdit();             // 进排版前先退文字编辑
@@ -773,6 +773,65 @@
   }
 
   /* ===== 时间轴卡片 ===== */
+  const timelineUndo=[],timelineRedo=[];
+  let timelineHistoryApplying=false,timelineTyping=null,timelineControlEdit=null;
+  function timelineCardState(card){
+    return {html:card.innerHTML,attrs:Array.from(card.attributes).map(a=>[a.name,a.value])};
+  }
+  function trimTimelineHistory(stack){
+    let size=stack.reduce((n,x)=>n+x.state.html.length,0);
+    while(stack.length>30||size>16000000){const old=stack.shift();size-=old.state.html.length;}
+  }
+  function rememberTimeline(card,label){
+    if(timelineHistoryApplying||!card)return;
+    timelineUndo.push({card,state:timelineCardState(card),label});trimTimelineHistory(timelineUndo);
+    timelineRedo.length=0;timelineTyping=null;timelineControlEdit=null;
+  }
+  function rememberTimelineControl(input,label){
+    const now=Date.now();
+    if(timelineControlEdit&&timelineControlEdit.input===input&&now-timelineControlEdit.at<700){timelineControlEdit.at=now;return;}
+    rememberTimeline(input.closest('.timeline-card'),label);
+    timelineControlEdit={input,at:now};
+  }
+  function restoreTimelineCard(card,state){
+    timelineHistoryApplying=true;
+    Array.from(card.attributes).forEach(a=>card.removeAttribute(a.name));
+    state.attrs.forEach(([name,value])=>card.setAttribute(name,value));
+    card.innerHTML=state.html;
+    ensureTimelineControls(card);syncLayoutDraggables();
+    timelineHistoryApplying=false;
+  }
+  function undoTimeline(){
+    let entry;
+    while((entry=timelineUndo.pop())&&!document.contains(entry.card)){}
+    if(!entry){setStatus('没有可撤销的操作');return;}
+    timelineRedo.push({card:entry.card,state:timelineCardState(entry.card),label:entry.label});trimTimelineHistory(timelineRedo);
+    restoreTimelineCard(entry.card,entry.state);timelineTyping=null;timelineControlEdit=null;
+    setStatus('↶ 已撤销：'+entry.label);
+  }
+  function redoTimeline(){
+    let entry;
+    while((entry=timelineRedo.pop())&&!document.contains(entry.card)){}
+    if(!entry){setStatus('没有可恢复的操作');return;}
+    timelineUndo.push({card:entry.card,state:timelineCardState(entry.card),label:entry.label});trimTimelineHistory(timelineUndo);
+    restoreTimelineCard(entry.card,entry.state);timelineTyping=null;timelineControlEdit=null;
+    setStatus('↷ 已恢复：'+entry.label);
+  }
+  document.addEventListener('beforeinput',e=>{
+    if(!editing||timelineHistoryApplying)return;
+    const field=e.target.closest?.('.timeline-card [contenteditable="true"]');if(!field)return;
+    const now=Date.now();
+    if(timelineTyping&&timelineTyping.field===field&&now-timelineTyping.at<900){timelineTyping.at=now;return;}
+    rememberTimeline(field.closest('.timeline-card'),'文字编辑');timelineTyping={field,at:now};
+  },true);
+  document.addEventListener('keydown',e=>{
+    if(!editing||e.altKey||!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;
+    const sel=window.getSelection(),node=sel&&sel.rangeCount?sel.anchorNode:null;
+    const el=node&&(node.nodeType===1?node:node.parentElement);
+    if(!el?.closest?.('.timeline-card')&&!document.activeElement?.closest?.('.timeline-card'))return;
+    e.preventDefault();e.stopPropagation();
+    if(e.shiftKey)redoTimeline();else undoTimeline();
+  },true);
   function timelineEditbarHtml(){
     return '<div class="tl-editbar" contenteditable="false">'+
       '<button onclick="addTimelineStep(this)">＋ 步骤</button>'+
@@ -795,13 +854,13 @@
   }
   function timelineModuleToolsHtml(){
     return '<div class="tl-moduletools" contenteditable="false">'+
-      '<button class="tl-drag" draggable="false" title="按住拖动内容块">⠿</button>'+
+      '<button class="tl-drag" draggable="false" title="按住拖动整步（标题和内容一起）">⠿</button>'+
       '<label title="只改这一块的颜色"><input type="color" value="#151c28" oninput="setTimelineModuleColor(this)" style="width:25px;height:23px;padding:0;border:0;background:transparent"></label>'+
       '<button class="danger" onclick="deleteTimelineModule(this)">✕</button></div>';
   }
   function timelineTreeModuleToolsHtml(){
     return '<div class="tl-moduletools" contenteditable="false">'+
-      '<button class="tl-drag" draggable="false" title="按住拖动小树注释组">⠿</button>'+
+      '<button class="tl-drag" draggable="false" title="按住拖动整步（标题和内容一起）">⠿</button>'+
       '<button class="danger" onclick="deleteTimelineModule(this)" title="删除整组小树注释">✕</button></div>';
   }
   function timelineTreeLineToolsHtml(){
@@ -941,6 +1000,7 @@
   }
   function addTimelineStep(btn){
     const card=btn.closest('.timeline-card'),track=card?.querySelector('.tl-track');if(!track)return;
+    rememberTimeline(card,'新增步骤');
     const step=makeTimelineStep();track.appendChild(step);renumberTimeline(card);syncTimelineEditables(step);focusEditable(step.querySelector('.tl-steptitle'));
     setStatus('已新增步骤，可拖动调整顺序');
   }
@@ -962,6 +1022,7 @@
         return;
       }
     }
+    rememberTimeline(step.closest('.timeline-card'),'新增内容块');
     const m=makeTimelineModule(type);box.appendChild(m);
     syncTimelineEditables(m);
     focusEditable(m.querySelector('[data-ph]'));setStatus('已新增内容块，可拖动调整顺序');
@@ -972,6 +1033,7 @@
   }
   function appendTimelineLine(lines){
     if(!lines)return;
+    rememberTimeline(lines.closest('.timeline-card'),'新增圆点');
     const line=document.createElement('div');line.className='tl-line';
     line.innerHTML='<span class="ph" data-ph="圆点内容（点这里输入）"></span><button class="tl-del-line" contenteditable="false" onclick="deleteTimelineLine(this)">✕</button>';
     lines.appendChild(line);line.querySelector('span').contentEditable=editing?'true':'false';focusEditable(line.querySelector('span'));
@@ -979,6 +1041,7 @@
   function deleteTimelineLine(btn){
     const line=btn.closest('.tl-line');if(!line)return;
     const lines=line.parentElement;if(lines.children.length===1&&!confirm('清空这一条内容？'))return;
+    rememberTimeline(line.closest('.timeline-card'),'删除圆点');
     if(lines.children.length===1)line.querySelector('span').textContent='';else line.remove();
   }
   function addTimelineTreeLine(btn){
@@ -987,6 +1050,7 @@
   }
   function appendTimelineTreeLine(lines){
     if(!lines)return;
+    rememberTimeline(lines.closest('.timeline-card'),'新增小树注释');
     const line=makeTimelineTreeLine();
     lines.appendChild(line);
     line.querySelector('.tl-tree-text').contentEditable=editing?'true':'false';
@@ -996,16 +1060,19 @@
   function deleteTimelineTreeLine(btn){
     const line=btn.closest('.tl-tree-line'),tree=line?.closest('.tl-tree');
     if(!line||!tree)return;
+    rememberTimeline(tree.closest('.timeline-card'),'删除小树注释');
     line.remove();
     if(!tree.querySelector('.tl-tree-line'))tree.remove();
     setStatus('已删除这条小树注释，记得保存');
   }
   function setTimelineTreeColor(input){
     const line=input.closest('.tl-tree-line');if(!line)return;
+    rememberTimelineControl(input,'调整小树注释颜色');
     line.style.setProperty('--tree-color',input.value);input.setAttribute('value',input.value);
   }
   function setTimelineTreeSize(input){
     const line=input.closest('.tl-tree-line');if(!line)return;
+    rememberTimelineControl(input,'调整小树注释字号');
     const size=Math.max(10,Math.min(28,Number(input.value)||12));
     input.value=size;input.setAttribute('value',String(size));
     line.style.setProperty('--tree-size',size+'px');
@@ -1015,29 +1082,35 @@
     const tree=!m.classList.contains('tl-tree')&&m.nextElementSibling?.classList.contains('tl-tree')?m.nextElementSibling:null;
     const text=(m.textContent+(tree?.textContent||'')).replace(/⠿|✕|圆点|注释/g,'').trim();
     if(text&&!confirm(tree?'删除这个内容块及其小树注释？':'删除这个内容块？'))return;
+    rememberTimeline(m.closest('.timeline-card'),'删除内容块');
     if(tree)tree.remove();m.remove();setStatus('已删除内容块，记得保存');
   }
   function deleteTimelineStep(btn){
     const step=btn.closest('.tl-section'),card=step?.closest('.timeline-card');if(!step||!card)return;
     if(step.textContent.replace(/拖步骤|删除步骤|圆点|流程条|说明|提醒|⠿|✕/g,'').trim()&&!confirm('删除整个步骤及其内容？'))return;
+    rememberTimeline(card,'删除步骤');
     step.remove();renumberTimeline(card);setStatus('已删除步骤，记得保存');
   }
   function toggleTimelineStyle(btn){btn.closest('.timeline-card')?.querySelector('.tl-stylepanel')?.classList.toggle('open');}
   function setTimelineColor(input){
     const card=input.closest('.timeline-card');if(!card)return;
+    rememberTimelineControl(input,'调整卡片颜色');
     card.style.setProperty(input.dataset.var,input.value);input.setAttribute('value',input.value);
   }
   function setTimelineModuleColor(input){
     const m=input.closest('.tl-module');if(!m)return;
+    rememberTimelineControl(input,'调整模块颜色');
     m.style.background=input.value;input.setAttribute('value',input.value);
   }
   function setTimelineChoice(sel){
     const card=sel.closest('.timeline-card');if(!card)return;
+    rememberTimelineControl(sel,'调整卡片样式');
     card.dataset[sel.dataset.key]=sel.value;
     Array.from(sel.options).forEach(o=>o.toggleAttribute('selected',o.value===sel.value));
   }
   function resetTimelineStyle(btn){
     const card=btn.closest('.timeline-card');if(!card)return;
+    rememberTimeline(card,'恢复默认样式');
     ['--tl-bg','--tl-panel','--tl-axis','--tl-accent','--tl-text','--tl-muted'].forEach(v=>card.style.removeProperty(v));
     card.dataset.font='system';card.dataset.size='normal';card.dataset.space='normal';
     const defaults={'--tl-bg':'#0d121c','--tl-panel':'#151c28','--tl-axis':'#8295b5','--tl-accent':'#5b9bff','--tl-text':'#edf1f8','--tl-muted':'#8794aa'};
@@ -1049,61 +1122,38 @@
   /* 编辑状态下：按住“⠿”移动，绕开 contenteditable 对原生拖拽的干扰 */
   let timelinePointer=null;
   function clearTimelineDrop(){document.querySelectorAll('.tl-drop-before,.tl-drop-after').forEach(x=>x.classList.remove('tl-drop-before','tl-drop-after'));}
-  function timelineModuleLead(m){
-    if(!m?.classList.contains('tl-tree'))return m;
-    const prev=m.previousElementSibling;
-    return prev?.classList.contains('tl-module')&&!prev.classList.contains('tl-tree')?prev:m;
-  }
-  function timelineModuleGroup(m){
-    const lead=timelineModuleLead(m);if(!lead)return [];
-    const nodes=[lead];let next=lead.nextElementSibling;
-    while(next?.classList.contains('tl-tree')){nodes.push(next);next=next.nextElementSibling;}
-    return nodes;
-  }
-  function timelineGroupRect(nodes){
-    const first=nodes[0].getBoundingClientRect(),last=nodes[nodes.length-1].getBoundingClientRect();
-    return {top:first.top,bottom:last.bottom};
-  }
   document.addEventListener('pointerdown',e=>{
     const handle=e.target.closest('.tl-drag');if(!editing||!handle)return;
-    const raw=handle.closest('.tl-module')||handle.closest('.tl-section');if(!raw)return;
-    const item=raw.classList.contains('tl-module')?timelineModuleLead(raw):raw;
-    const nodes=item.classList.contains('tl-module')?timelineModuleGroup(item):[item];
-    timelinePointer={item,nodes,handle,x:e.clientX,y:e.clientY,target:null,targetEnd:null,after:false,active:false,pointerId:e.pointerId};
+    const item=handle.closest('.tl-section');if(!item)return;
+    timelinePointer={item,handle,x:e.clientX,y:e.clientY,target:null,after:false,active:false,pointerId:e.pointerId};
     handle.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation();
   },true);
   document.addEventListener('pointermove',e=>{
     if(!timelinePointer)return;
     if(!timelinePointer.active&&Math.abs(e.clientX-timelinePointer.x)+Math.abs(e.clientY-timelinePointer.y)<6)return;
-    timelinePointer.active=true;timelinePointer.nodes.forEach(n=>n.classList.add('tl-pointer-dragging'));
-    const selector=timelinePointer.item.classList.contains('tl-section')?'.tl-section':'.tl-module';
+    timelinePointer.active=true;timelinePointer.item.classList.add('tl-pointer-dragging');
     const under=document.elementFromPoint(e.clientX,e.clientY);
-    const rawTarget=under?.closest(selector);
-    clearTimelineDrop();timelinePointer.target=null;timelinePointer.targetEnd=null;
-    if(!rawTarget||timelinePointer.nodes.includes(rawTarget)||rawTarget.closest('.timeline-card')!==timelinePointer.item.closest('.timeline-card'))return;
-    const target=timelinePointer.item.classList.contains('tl-section')?rawTarget:timelineModuleLead(rawTarget);
-    const targetNodes=timelinePointer.item.classList.contains('tl-section')?[target]:timelineModuleGroup(target);
-    if(targetNodes.some(n=>timelinePointer.nodes.includes(n)))return;
-    const r=timelineGroupRect(targetNodes),after=e.clientY>(r.top+r.bottom)/2;
-    (after?targetNodes[targetNodes.length-1]:target).classList.add(after?'tl-drop-after':'tl-drop-before');
-    timelinePointer.target=target;timelinePointer.targetEnd=targetNodes[targetNodes.length-1];timelinePointer.after=after;e.preventDefault();e.stopPropagation();
+    const target=under?.closest('.tl-section');
+    clearTimelineDrop();timelinePointer.target=null;
+    if(!target||target===timelinePointer.item||target.closest('.timeline-card')!==timelinePointer.item.closest('.timeline-card'))return;
+    const r=target.getBoundingClientRect(),after=e.clientY>r.top+r.height/2;
+    target.classList.add(after?'tl-drop-after':'tl-drop-before');
+    timelinePointer.target=target;timelinePointer.after=after;e.preventDefault();e.stopPropagation();
   },true);
   document.addEventListener('pointerup',e=>{
     if(!timelinePointer)return;
-    const {item,nodes,target,targetEnd,after,active}=timelinePointer;
+    const {item,target,after,active}=timelinePointer;
     if(active&&target){
-      if(item.classList.contains('tl-module')){
-        const frag=document.createDocumentFragment();nodes.forEach(n=>frag.appendChild(n));
-        target.parentElement.insertBefore(frag,after?targetEnd.nextSibling:target);
-      }else target.parentElement.insertBefore(item,after?target.nextSibling:target);
-      renumberTimeline(target.closest('.timeline-card'));setStatus('顺序已调整，记得保存');
+      rememberTimeline(item.closest('.timeline-card'),'拖动完整步骤');
+      target.parentElement.insertBefore(item,after?target.nextSibling:target);
+      renumberTimeline(target.closest('.timeline-card'));setStatus('整步顺序已调整：标题和内容一起移动');
     }
-    nodes.forEach(n=>n.classList.remove('tl-pointer-dragging'));clearTimelineDrop();timelinePointer=null;
+    item.classList.remove('tl-pointer-dragging');clearTimelineDrop();timelinePointer=null;
     if(active){e.preventDefault();e.stopPropagation();}
   },true);
   document.addEventListener('pointercancel',()=>{
     if(!timelinePointer)return;
-    timelinePointer.nodes.forEach(n=>n.classList.remove('tl-pointer-dragging'));clearTimelineDrop();timelinePointer=null;
+    timelinePointer.item.classList.remove('tl-pointer-dragging');clearTimelineDrop();timelinePointer=null;
   },true);
   /* ===== 分类整组拖动：标题带着其后的全部卡片一起移动 ===== */
   let categoryPointer=null;
