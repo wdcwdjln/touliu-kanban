@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { writeFile, rename } from 'node:fs/promises';
+import { readFile, writeFile, rename } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
@@ -89,6 +89,16 @@ async function saveToGitHub(content) {
   return { saved: true, commit };
 }
 
+async function loadFromGitHub() {
+  const dirty = await runGit(['status', '--porcelain']);
+  if (dirty) throw new Error('本地仓库存在未处理修改，暂时无法载入云端版本');
+  await runGit(['fetch', 'origin', 'main']);
+  await runGit(['merge', '--ff-only', 'origin/main']);
+  const content = await readFile(CONTENT_FILE, 'utf8');
+  const commit = await runGit(['rev-parse', '--short', 'HEAD']);
+  return { content, commit };
+}
+
 function setCors(req, res) {
   const origin = req.headers.origin;
   if (origin === ALLOWED_ORIGIN) {
@@ -114,6 +124,26 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === 'GET' && req.url === '/health') {
     sendJson(res, 200, { ok: true });
+    return;
+  }
+  if (req.method === 'GET' && req.url.startsWith('/content')) {
+    if (req.headers.origin !== ALLOWED_ORIGIN) {
+      sendJson(res, 403, { ok: false, error: '来源不允许' });
+      return;
+    }
+    const task = () => loadFromGitHub();
+    saveQueue = saveQueue.then(task, task);
+    saveQueue.then(
+      result => {
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'X-Kanban-Commit': result.commit,
+        });
+        res.end(result.content);
+      },
+      error => sendJson(res, 500, { ok: false, error: error.message || String(error) }),
+    );
     return;
   }
   if (req.method !== 'POST' || req.url !== '/save') {
@@ -155,4 +185,3 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   process.stdout.write(`touliu-kanban save bridge listening on http://${HOST}:${PORT}\n`);
 });
-
