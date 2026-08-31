@@ -42,6 +42,28 @@ function runGit(args, timeout = 180_000) {
   });
 }
 
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isTemporaryNetworkError(error) {
+  return /SSL_ERROR_SYSCALL|Could not resolve host|Failed to connect|Connection reset|Connection timed out|HTTP\/2 stream|remote end hung up|TLS|network/i.test(error?.message || '');
+}
+
+async function runGitNetwork(args) {
+  let lastError;
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    try {
+      return await runGit(['-c', 'http.version=HTTP/1.1', ...args], 30_000);
+    } catch (error) {
+      lastError = error;
+      if (!isTemporaryNetworkError(error) || attempt === 4) throw error;
+      await delay(attempt * 800);
+    }
+  }
+  throw lastError;
+}
+
 async function saveToGitHub(content) {
   if (typeof content !== 'string' || content.length < 10_000 || !content.includes('千川全域投流')) {
     throw new Error('看板内容校验失败，已拒绝覆盖');
@@ -50,7 +72,7 @@ async function saveToGitHub(content) {
   const dirty = await runGit(['status', '--porcelain']);
   if (dirty) throw new Error('本地仓库存在未处理修改，请先处理后再保存');
 
-  await runGit(['fetch', 'origin', 'main']);
+  await runGitNetwork(['fetch', 'origin', 'main']);
   await runGit(['merge', '--ff-only', 'origin/main']);
   await writeFile(TEMP_FILE, content, 'utf8');
   await rename(TEMP_FILE, CONTENT_FILE);
@@ -58,7 +80,9 @@ async function saveToGitHub(content) {
 
   try {
     await runGit(['diff', '--cached', '--quiet']);
-    return { saved: true, unchanged: true };
+    await runGitNetwork(['push', 'origin', 'main']);
+    const commit = await runGit(['rev-parse', '--short', 'HEAD']);
+    return { saved: true, unchanged: true, commit };
   } catch {
     // 有变更时，git diff --quiet 返回 1，继续提交。
   }
@@ -71,16 +95,16 @@ async function saveToGitHub(content) {
   await runGit(['commit', '-m', `更新看板内容 ${stamp}`]);
 
   try {
-    await runGit(['push', 'origin', 'main']);
+    await runGitNetwork(['push', 'origin', 'main']);
   } catch (firstError) {
-    await runGit(['fetch', 'origin', 'main']);
+    await runGitNetwork(['fetch', 'origin', 'main']);
     try {
       await runGit(['rebase', 'origin/main']);
     } catch (rebaseError) {
       await runGit(['rebase', '--abort']).catch(() => {});
       throw new Error(`云端有冲突：${rebaseError.message}`);
     }
-    await runGit(['push', 'origin', 'main']).catch(() => {
+    await runGitNetwork(['push', 'origin', 'main']).catch(() => {
       throw firstError;
     });
   }
@@ -92,7 +116,7 @@ async function saveToGitHub(content) {
 async function loadFromGitHub() {
   const dirty = await runGit(['status', '--porcelain']);
   if (dirty) throw new Error('本地仓库存在未处理修改，暂时无法载入云端版本');
-  await runGit(['fetch', 'origin', 'main']);
+  await runGitNetwork(['fetch', 'origin', 'main']);
   await runGit(['merge', '--ff-only', 'origin/main']);
   const content = await readFile(CONTENT_FILE, 'utf8');
   const commit = await runGit(['rev-parse', '--short', 'HEAD']);

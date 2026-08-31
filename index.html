@@ -1425,7 +1425,7 @@
     snap.querySelectorAll('.search-hit,.search-dim,.search-texthit,.search-imghit').forEach(x=>x.classList.remove('search-hit','search-dim','search-texthit','search-imghit'));
     const data=snap.innerHTML;
     const controller=new AbortController();
-    const timeout=setTimeout(()=>controller.abort(),180000);
+    const timeout=setTimeout(()=>controller.abort(),135000);
     try{
       setStatus('保存到云端…');
       const response=await fetch('http://127.0.0.1:18765/save',{
