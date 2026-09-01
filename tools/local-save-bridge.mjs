@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { readFile, writeFile, rename } from 'node:fs/promises';
+import { access, readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
@@ -8,10 +8,20 @@ const PORT = 18765;
 const REPO = '/Users/ma/投流系统/touliu-kanban';
 const CONTENT_FILE = path.join(REPO, 'content.html');
 const TEMP_FILE = path.join(REPO, '.content.html.bridge-tmp');
+const PENDING_FILE = path.join(REPO, '.content.html.pending');
+const PENDING_TEMP_FILE = path.join(REPO, '.content.html.pending-tmp');
 const ALLOWED_ORIGIN = 'https://wdcwdjln.github.io';
 const MAX_BODY = 90 * 1024 * 1024;
 
 let saveQueue = Promise.resolve();
+let pendingVersion = 0;
+let syncWorker = null;
+const syncState = {
+  pending: false,
+  syncing: false,
+  lastError: '',
+  commit: '',
+};
 
 function runGit(args, timeout = 180_000) {
   return new Promise((resolve, reject) => {
@@ -52,25 +62,49 @@ function isTemporaryNetworkError(error) {
 
 async function runGitNetwork(args) {
   let lastError;
-  for (let attempt = 1; attempt <= 4; attempt += 1) {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      return await runGit(['-c', 'http.version=HTTP/1.1', ...args], 30_000);
+      return await runGit(['-c', 'http.version=HTTP/1.1', ...args], 20_000);
     } catch (error) {
       lastError = error;
-      if (!isTemporaryNetworkError(error) || attempt === 4) throw error;
+      if (!isTemporaryNetworkError(error) || attempt === 3) throw error;
       await delay(attempt * 800);
     }
   }
   throw lastError;
 }
 
-async function saveToGitHub(content) {
+function validateContent(content) {
   if (typeof content !== 'string' || content.length < 10_000 || !content.includes('千川全域投流')) {
     throw new Error('看板内容校验失败，已拒绝覆盖');
   }
+}
+
+async function fileExists(file) {
+  try {
+    await access(file);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function stagePendingContent(content) {
+  validateContent(content);
+  await writeFile(PENDING_TEMP_FILE, content, 'utf8');
+  await rename(PENDING_TEMP_FILE, PENDING_FILE);
+  pendingVersion += 1;
+  syncState.pending = true;
+  syncState.lastError = '';
+  return { saved: true, queued: true };
+}
+
+async function publishToGitHub(content) {
+  validateContent(content);
 
   const dirty = await runGit(['status', '--porcelain']);
-  if (dirty) throw new Error('本地仓库存在未处理修改，请先处理后再保存');
+  const unrelatedDirty = dirty.split('\n').filter(Boolean).filter(line => !line.endsWith(' content.html'));
+  if (unrelatedDirty.length) throw new Error('看板程序存在未处理修改，已暂停云端覆盖');
 
   await runGitNetwork(['fetch', 'origin', 'main']);
   await runGit(['merge', '--ff-only', 'origin/main']);
@@ -113,7 +147,48 @@ async function saveToGitHub(content) {
   return { saved: true, commit };
 }
 
+function requestSync() {
+  if (syncWorker) return syncWorker;
+  syncWorker = (async () => {
+    syncState.syncing = true;
+    let retryDelay = 2_000;
+    while (await fileExists(PENDING_FILE)) {
+      const version = pendingVersion;
+      try {
+        const content = await readFile(PENDING_FILE, 'utf8');
+        const task = () => publishToGitHub(content);
+        saveQueue = saveQueue.then(task, task);
+        const result = await saveQueue;
+        syncState.commit = result.commit || syncState.commit;
+        syncState.lastError = '';
+        retryDelay = 2_000;
+        if (version === pendingVersion) {
+          await unlink(PENDING_FILE).catch(() => {});
+        }
+      } catch (error) {
+        syncState.lastError = error.message || String(error);
+        await delay(retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 60_000);
+      }
+    }
+    syncState.pending = false;
+    syncState.syncing = false;
+  })().finally(() => {
+    syncWorker = null;
+    setTimeout(async () => {
+      if (await fileExists(PENDING_FILE)) requestSync();
+    }, 100);
+  });
+  return syncWorker;
+}
+
 async function loadFromGitHub() {
+  if (await fileExists(PENDING_FILE)) {
+    syncState.pending = true;
+    requestSync();
+    const content = await readFile(PENDING_FILE, 'utf8');
+    return { content, commit: syncState.commit, pending: true };
+  }
   const dirty = await runGit(['status', '--porcelain']);
   if (dirty) throw new Error('本地仓库存在未处理修改，暂时无法载入云端版本');
   await runGitNetwork(['fetch', 'origin', 'main']);
@@ -147,7 +222,15 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (req.method === 'GET' && req.url === '/health') {
-    sendJson(res, 200, { ok: true });
+    sendJson(res, 200, { ok: true, ...syncState });
+    return;
+  }
+  if (req.method === 'GET' && req.url.startsWith('/sync-status')) {
+    if (req.headers.origin !== ALLOWED_ORIGIN) {
+      sendJson(res, 403, { ok: false, error: '来源不允许' });
+      return;
+    }
+    sendJson(res, 200, { ok: true, ...syncState });
     return;
   }
   if (req.method === 'GET' && req.url.startsWith('/content')) {
@@ -197,10 +280,13 @@ const server = http.createServer((req, res) => {
       sendJson(res, 400, { ok: false, error: '保存数据格式错误' });
       return;
     }
-    const task = () => saveToGitHub(body.content);
+    const task = () => stagePendingContent(body.content);
     saveQueue = saveQueue.then(task, task);
     saveQueue.then(
-      result => sendJson(res, 200, { ok: true, ...result }),
+      result => {
+        requestSync();
+        sendJson(res, 200, { ok: true, ...result });
+      },
       error => sendJson(res, 500, { ok: false, error: error.message || String(error) }),
     );
   });
@@ -208,4 +294,10 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, HOST, () => {
   process.stdout.write(`touliu-kanban save bridge listening on http://${HOST}:${PORT}\n`);
+  fileExists(PENDING_FILE).then(exists => {
+    if (exists) {
+      syncState.pending = true;
+      requestSync();
+    }
+  });
 });

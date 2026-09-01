@@ -1381,6 +1381,7 @@
   const GH={owner:'wdcwdjln',repo:'touliu-kanban',path:'content.html',branch:'main'};
   const TK_KEY='gh_token';
   let savingCloud=false;
+  let cloudWatchSeq=0;
   function ghHeaders(t){return {Authorization:'Bearer '+t,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};}
   function b64(str){return btoa(unescape(encodeURIComponent(str)));}
   function unb64(b){return decodeURIComponent(escape(atob((b||'').replace(/\s/g,''))));}
@@ -1425,7 +1426,7 @@
     snap.querySelectorAll('.search-hit,.search-dim,.search-texthit,.search-imghit').forEach(x=>x.classList.remove('search-hit','search-dim','search-texthit','search-imghit'));
     const data=snap.innerHTML;
     const controller=new AbortController();
-    const timeout=setTimeout(()=>controller.abort(),135000);
+    const timeout=setTimeout(()=>controller.abort(),30000);
     try{
       setStatus('保存到云端…');
       const response=await fetch('http://127.0.0.1:18765/save',{
@@ -1436,12 +1437,32 @@
       });
       const result=await response.json().catch(function(){return {};});
       if(!response.ok||!result.ok)throw new Error(result.error||('保存服务 '+response.status));
-      setStatus('✅ 已存 GitHub '+time()+(result.commit?' · '+result.commit:''));
+      if(result.queued){
+        setStatus('✅ 内容已锁住 · 正在同步云端…');
+        watchCloudSync(++cloudWatchSeq);
+      }else{
+        setStatus('✅ 已存 GitHub '+time()+(result.commit?' · '+result.commit:''));
+      }
     }catch(e){
       setStatus('保存失败：'+(e.name==='AbortError'?'保存超时，请再点一次':(e.message||String(e))));
     }finally{
       clearTimeout(timeout);
       savingCloud=false;
+    }
+  }
+  async function watchCloudSync(seq){
+    for(let i=0;i<180&&seq===cloudWatchSeq;i++){
+      await wait(1000);
+      try{
+        const r=await fetch('http://127.0.0.1:18765/sync-status?_='+Date.now(),{cache:'no-store'});
+        const s=await r.json();
+        if(!r.ok||!s.ok)continue;
+        if(!s.pending&&!s.syncing){
+          setStatus('✅ 已存 GitHub '+time()+(s.commit?' · '+s.commit:''));
+          return;
+        }
+        setStatus('✅ 内容已锁住 · 云端自动重连中…');
+      }catch(e){}
     }
   }
   function time(){const d=new Date();return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');}
