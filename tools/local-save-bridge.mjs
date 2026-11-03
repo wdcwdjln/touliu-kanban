@@ -2,6 +2,7 @@ import http from 'node:http';
 import { access, readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { externalizeImages } from './externalize-images.mjs';
 
 const HOST = '127.0.0.1';
 const PORT = 18765;
@@ -103,14 +104,15 @@ async function publishToGitHub(content) {
   validateContent(content);
 
   const dirty = await runGit(['status', '--porcelain']);
-  const unrelatedDirty = dirty.split('\n').filter(Boolean).filter(line => !line.endsWith(' content.html'));
+  const unrelatedDirty = dirty.split('\n').filter(Boolean).filter(line => !line.endsWith(' content.html') && !/ assets\/?/.test(line));
   if (unrelatedDirty.length) throw new Error('看板程序存在未处理修改，已暂停云端覆盖');
 
   await runGitNetwork(['fetch', 'origin', 'main']);
   await runGit(['merge', '--ff-only', 'origin/main']);
-  await writeFile(TEMP_FILE, content, 'utf8');
+  const slim = await externalizeImages(content, REPO);
+  await writeFile(TEMP_FILE, slim.content, 'utf8');
   await rename(TEMP_FILE, CONTENT_FILE);
-  await runGit(['add', 'content.html']);
+  await runGit(['add', 'content.html', 'assets']);
 
   try {
     await runGit(['diff', '--cached', '--quiet']);
